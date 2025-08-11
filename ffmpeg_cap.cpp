@@ -51,12 +51,6 @@ private:
     SwsContext *sws_ctx = nullptr;
     int video_stream_index = -1;
     
-    // Current camera settings
-    int current_iso = 500;
-    double current_ev = 0.0;
-    std::string current_aperture = "5.6";
-    int current_shutter_angle = 180;
-    
     double target_brightness = 128.0;
     double brightness_tolerance = 15.0;
     
