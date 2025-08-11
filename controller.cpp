@@ -911,7 +911,13 @@ public:
         std::cout << "🧹 Cleaned up" << std::endl;
     }
 
-    HTTPResponse curlHTTPRequest(const std::string& endpoint, const std::string& method = "GET", const std::string& data = "") {
+    static size_t WriteCallback(void *contents, size_t size, size_t nmemb, HTTPResponse *response) {
+        size_t totalSize = size * nmemb;
+        response->data.append((char*)contents, totalSize);
+        return totalSize;
+    }
+
+    HTTPResponse curlHTTPRequest(const std::string& endpoint, const string& method = "GET", const std::string& data = "") {
      
         HTTPResponse response;
         response.success = false;
