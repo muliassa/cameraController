@@ -14,6 +14,7 @@
 #include <string>
 
 using namespace std;
+using namespace cv;
 
 // ZCAM HTTP Response structure
 struct WriteMemoryStruct {
@@ -62,7 +63,7 @@ struct LogEntry {
 
 class ZCAMExposureController {
 private:
-    std::string camera_ip;
+    string camera_ip;
     cv::VideoCapture rtsp_cap;
     CURL *curl;
     
@@ -579,13 +580,13 @@ public:
         
         // Add ZCAM exposure info overlay
         vector<string> info_text = {
-            String("ZCAM E2 Surf Monitor"),
-            String("Brightness: ") + to_string(static_cast<int>(metrics.mean_brightness)),
-            String("Score: ") + to_string(static_cast<int>(metrics.exposure_score)) + "/100",
-            String("ISO: ") + to_string(current_iso) + (current_iso == 500 || current_iso == 2500 ? "*" : ""),
-            String("EV: ") + String(current_ev >= 0 ? "+" : "") + to_string(current_ev).substr(0, 4),
-            String("f/") + current_aperture,
-            String("Shutter: ") + to_string(current_shutter_angle) + String("°")
+            string("ZCAM E2 Surf Monitor"),
+            string("Brightness: ") + to_string(static_cast<int>(metrics.mean_brightness)),
+            string("Score: ") + to_string(static_cast<int>(metrics.exposure_score)) + "/100",
+            string("ISO: ") + to_string(current_iso) + (current_iso == 500 || current_iso == 2500 ? "*" : ""),
+            string("EV: ") + String(current_ev >= 0 ? "+" : "") + to_string(current_ev).substr(0, 4),
+            string("f/") + current_aperture,
+            string("Shutter: ") + to_string(current_shutter_angle) + String("°")
         };
         
         for (size_t i = 0; i < info_text.size(); i++) {
