@@ -33,7 +33,7 @@ $(BUILD_DIR):
 	mkdir -p $(BUILD_DIR)
 
 # Alternative using g++ (if you prefer)
-$(TARGET)_gcc: $(SOURCES) | $(BUILD_DIR) check-deps
+$(TARGET): $(SOURCES) | $(BUILD_DIR) check-deps
 	@echo "Building with GCC..."
 	$(CXX) $(CXXFLAGS) $(INCLUDES) $(LIB_DIRS) -o $@ $(SOURCES) $(LIBS)
 
