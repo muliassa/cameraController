@@ -15,6 +15,15 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+// FFmpeg C API headers
+extern "C" {
+#include <libavformat/avformat.h>
+#include <libavcodec/avcodec.h>
+#include <libavutil/imgutils.h>
+#include <libavutil/frame.h>
+#include <libswscale/swscale.h>
+}
+
 using namespace std;
 using namespace cv;
 
@@ -105,6 +114,7 @@ public:
 
         // Configure stream settings for optimal monitoring
         // configureStreamForMonitoring();
+        rtsp_url = "rtsp://" + camera_ip + "/live_stream";
 
         initializeStream();
         
@@ -891,18 +901,18 @@ public:
 
     // Capture from the working RTSP live_stream
     cv::Mat captureFrame() {
-        static cv::VideoCapture rtsp_cap;
+        // static cv::VideoCapture rtsp_cap;
         static bool initialized = false;
         
         if (!initialized) {
-            std::string rtsp_url = "rtsp://" + camera_ip + "/live_stream";
-            std::cout << "📺 Connecting to ZCAM live stream: " << rtsp_url << std::endl;
+            rtsp_url = "rtsp://" + camera_ip + "/live_stream";
+            // std::cout << "📺 Connecting to ZCAM live stream: " << rtsp_url << std::endl;
             
             // Configure for optimal RTSP performance
-            rtsp_cap.set(cv::CAP_PROP_BUFFERSIZE, 1);    // Minimize latency
-            rtsp_cap.set(cv::CAP_PROP_FPS, 30);          // Match camera fps
+            // rtsp_cap.set(cv::CAP_PROP_BUFFERSIZE, 1);    // Minimize latency
+            // rtsp_cap.set(cv::CAP_PROP_FPS, 30);          // Match camera fps
             
-            bool opened = rtsp_cap.open(rtsp_url, cv::CAP_FFMPEG);
+            // bool opened = rtsp_cap.open(rtsp_url, cv::CAP_FFMPEG);
             
             if (opened) {
                 std::cout << "✅ RTSP live_stream connected successfully" << std::endl;
@@ -916,13 +926,13 @@ public:
             }
         }
         
-        if (!rtsp_cap.isOpened()) {
-            std::cout << "❌ RTSP stream not available" << std::endl;
-            return cv::Mat();
-        }
+        // if (!rtsp_cap.isOpened()) {
+        //     std::cout << "❌ RTSP stream not available" << std::endl;
+        //     return cv::Mat();
+        // }
         
         cv::Mat frame;
-        bool success = rtsp_cap.read(frame);
+        // bool success = rtsp_cap.read(frame);
         
         if (success && !frame.empty()) {
             // Only print occasionally to avoid spam
@@ -935,7 +945,7 @@ public:
             return frame;
         } else {
             std::cout << "⚠️ Failed to read frame, attempting reconnect..." << std::endl;
-            rtsp_cap.release();
+            // rtsp_cap.release();
             initialized = false;
             return cv::Mat();
         }
