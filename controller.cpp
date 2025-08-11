@@ -994,12 +994,12 @@ int main(int argc, char* argv[]) {
 
         int analysis_count = 0;
 
-        Mat frame = captureFrame();
+        Mat frame = controller.captureFrame();
             
         if (frame.empty()) {
             cout << "❌ No frame available, retrying..." << std::endl;
             this_thread::sleep_for(chrono::seconds(2));
-            continue;
+            return 0;
         }
 
         // Analyze exposure from real camera feed
