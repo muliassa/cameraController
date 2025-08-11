@@ -16,14 +16,14 @@ INCLUDES = 	-Iincludes \
 			-I/usr/include/jsoncpp
 
 # Library directories
-LIB_DIRS = 
+LIB_DIRS = -L/lib/x86_64-linux-gnu/
 
 # Libraries - CUDA 12.x NPP libraries with proper order
 # LIBS = -lcuda -lcudart -lnvcuvid -lnvidia-encode -lnppig -lnppc \
 #        -lavformat -lavcodec -lavutil
 
 # Libraries - CUDA 12.x NPP libraries with explicit FFmpeg 6.1.1 paths
-LIBS = 
+LIBS = -lopencv_core -lopencv_imgproc -lopencv_imgcodecs -lopencv_videoio -lopencv_highgui -lcurl -ljsoncpp
 
 # Compiler flags
 CXXFLAGS = -std=c++17 -O2 -Wall
