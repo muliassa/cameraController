@@ -178,7 +178,10 @@ public:
     }
     
     Mat captureFrame() {
-        Mat frame;
+
+    cv::Mat captureFrame() {
+
+        cv::Mat frame;
         
         // if (rtsp_cap.isOpened()) {
         //     bool ret = rtsp_cap.read(frame);
@@ -187,15 +190,20 @@ public:
         //     }
         // }
         
-        // Fallback: Try to capture via HTTP snapshot
-        string snapshot_url = "http://" + camera_ip + "/ctrl/snapshot";
-        string response = sendHTTPRequest(snapshot_url);
+        // Fallback: Try to capture via HTTP snapshot or return dummy frame
+        std::string snapshot_url = "http://" + camera_ip + "/ctrl/snapshot";
+        std::string response = sendHTTPRequest(snapshot_url);
         
-        // This would need additional implementation to decode the image data
-        // For now, return empty frame as fallback
-        return cv::Mat();
+        // In console mode, create a dummy frame for analysis
+        // You could enhance this to actually download and decode the snapshot
+        // Create a dummy frame - in real implementation you'd decode the HTTP response
+        // frame = cv::Mat::zeros(100, 100, CV_8UC3);
+        // Add some realistic data for testing
+        // cv::randu(frame, cv::Scalar(100, 100, 100), cv::Scalar(150, 150, 150));
+        
+        return frame;
     }
-    
+
     ExposureMetrics analyzeExposure(const cv::Mat& frame) {
         ExposureMetrics metrics;
         
@@ -797,7 +805,7 @@ public:
         std::vector<ExposureMetrics> test_metrics;
         
         for (int i = 0; i < 5; i++) {
-            cv::Mat frame = captureFrame();
+            Mat frame = captureFrame();
             if (!frame.empty()) {
                 ExposureMetrics metrics = analyzeExposure(frame);
                 test_metrics.push_back(metrics);
