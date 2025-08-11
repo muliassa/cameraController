@@ -919,6 +919,8 @@ public:
 
     HTTPResponse curlHTTPRequest(const std::string& endpoint, const string& method = "GET", const std::string& data = "") {
      
+        cout << "curlHTTPRequest:" << endpoint << endl;
+
         HTTPResponse response;
         response.success = false;
         response.response_code = 0;
@@ -944,6 +946,9 @@ public:
         }
         
         CURLcode res = curl_easy_perform(curl);
+     
+        cout << "CURLcod: " << res << endl;
+
         curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &response.response_code);
         
         response.success = (res == CURLE_OK && response.response_code == 200);
@@ -969,7 +974,7 @@ public:
         }
 
         return iso_resp.success;
-        
+
         // Get white balance for context
         HTTPResponse wb_resp = curlHTTPRequest("/ctrl/get?k=wb");
         if (wb_resp.success) {
