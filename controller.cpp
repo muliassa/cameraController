@@ -887,25 +887,56 @@ public:
         std::cout << "Surf optimization complete" << std::endl;
     }
 
-    Mat captureFrame() {
-        Mat frame;
+    // Capture from the working RTSP live_stream
+    cv::Mat captureFrame() {
+        static cv::VideoCapture rtsp_cap;
+        static bool initialized = false;
         
-        // Use RTSP stream1 (monitoring) - NOT stream0 (recording)
-        // if (!rtsp_cap.isOpened()) {
-        //     std::string rtsp_url = "rtsp://" + camera_ip + "/stream1";  // stream1 only!
-        //     rtsp_cap.open(rtsp_url);
-        // }
+        if (!initialized) {
+            std::string rtsp_url = "rtsp://" + camera_ip + "/live_stream";
+            std::cout << "📺 Connecting to ZCAM live stream: " << rtsp_url << std::endl;
+            
+            // Configure for optimal RTSP performance
+            rtsp_cap.set(cv::CAP_PROP_BUFFERSIZE, 1);    // Minimize latency
+            rtsp_cap.set(cv::CAP_PROP_FPS, 30);          // Match camera fps
+            
+            bool opened = rtsp_cap.open(rtsp_url, cv::CAP_FFMPEG);
+            
+            if (opened) {
+                std::cout << "✅ RTSP live_stream connected successfully" << std::endl;
+                initialized = true;
+                
+                // Let stream stabilize
+                std::this_thread::sleep_for(std::chrono::seconds(2));
+            } else {
+                std::cout << "❌ Failed to connect to RTSP live_stream" << std::endl;
+                return cv::Mat();
+            }
+        }
         
-        // if (rtsp_cap.isOpened()) {
-        //     bool ret = rtsp_cap.read(frame);
-        //     if (ret && !frame.empty()) {
-        //         std::cout << "✅ RTSP frame: " << frame.cols << "x" << frame.rows << std::endl;
-        //         return frame;
-        //     }
-        // }
+        if (!rtsp_cap.isOpened()) {
+            std::cout << "❌ RTSP stream not available" << std::endl;
+            return cv::Mat();
+        }
         
-        std::cout << "❌ No RTSP frame available" << std::endl;
-        return cv::Mat();
+        cv::Mat frame;
+        bool success = rtsp_cap.read(frame);
+        
+        if (success && !frame.empty()) {
+            // Only print occasionally to avoid spam
+            static int frame_count = 0;
+            if (frame_count % 30 == 0) {  // Every 30 frames (~1 second)
+                std::cout << "📷 Frame " << frame_count << ": " << frame.cols << "x" << frame.rows << std::endl;
+            }
+            frame_count++;
+            
+            return frame;
+        } else {
+            std::cout << "⚠️ Failed to read frame, attempting reconnect..." << std::endl;
+            rtsp_cap.release();
+            initialized = false;
+            return cv::Mat();
+        }
     }
 
     void calibrateForLocation() {
@@ -961,9 +992,57 @@ int main(int argc, char* argv[]) {
         // Initialize camera controller
         ZCAMExposureController controller(camera_ip);
 
-        // Step 2: Try HTTP snapshot from stream1
-        std::cout << "\n=== Testing stream1 HTTP snapshots ===" << std::endl;
-        bool http_success = controller.captureStream1Snapshot();
+        int analysis_count = 0;
+
+        Mat frame = captureFrame();
+            
+        if (frame.empty()) {
+            cout << "❌ No frame available, retrying..." << std::endl;
+            this_thread::sleep_for(chrono::seconds(2));
+            continue;
+        }
+
+        // Analyze exposure from real camera feed
+        ExposureMetrics metrics = controller.analyzeExposure(frame);
+        analysis_count++;
+            
+            // Display current analysis
+            auto now = chrono::system_clock::now();
+            auto time_t = chrono::system_clock::to_time_t(now);
+            auto tm = *localtime(&time_t);
+            
+            std::cout << "\n--- Analysis #" << analysis_count 
+                     << " (" << std::put_time(&tm, "%H:%M:%S") << ") ---" << std::endl;
+            std::cout << "📊 Brightness: " << std::fixed << setprecision(1) 
+                     << metrics.mean_brightness << "/255";
+            
+            if (metrics.mean_brightness < 100) {
+                std::cout << " (DARK 🌙)";
+            } else if (metrics.mean_brightness > 180) {
+                std::cout << " (BRIGHT ☀️)";
+            } else {
+                std::cout << " (GOOD ✅)";
+            }
+            std::cout << std::endl;
+            
+            std::cout << "📊 Contrast: " << metrics.contrast << std::endl;
+            std::cout << "📊 Highlights clipped: " << metrics.clipped_highlights << "%" << std::endl;
+            std::cout << "📊 Shadows clipped: " << metrics.clipped_shadows << "%" << std::endl;
+            std::cout << "📊 Exposure score: " << metrics.exposure_score << "/100" << std::endl;
+            
+            // Suggest camera adjustments
+            // ZCAMSettings suggested = controller.suggestCameraSettings(metrics);
+            // std::cout << "💡 Suggestion: " << suggested.reasoning << std::endl;
+            
+            // if (suggested.iso != controller.getCurrentISO() || 
+            //     std::abs(suggested.exposure_compensation - controller.getCurrentEV()) > 0.1) {
+            //     std::cout << "🔧 Recommended changes:" << std::endl;
+            //     std::cout << "   ISO: " << controller.getCurrentISO() << " → " << suggested.iso << std::endl;
+            //     std::cout << "   EV: " << controller.getCurrentEV() << " → " << suggested.exposure_compensation << std::endl;
+            // }
+            
+            // Wait before next analysis
+            std::this_thread::sleep_for(std::chrono::seconds(10));
 
         return 0;
         
