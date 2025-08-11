@@ -822,7 +822,7 @@ int main(int argc, char* argv[]) {
                 std::cout << "📊 Shadows clipped: " << metrics.clipped_shadows << "%" << std::endl;
                 std::cout << "📊 Exposure score: " << metrics.exposure_score << "/100" << std::endl;
                 
-                Get camera adjustment suggestions
+                // Get camera adjustment suggestions
                 ZCAMSettings suggested = controller.suggestCameraSettings(metrics);
                 std::cout << "💡 Analysis: " << suggested.reasoning << std::endl;
                 
