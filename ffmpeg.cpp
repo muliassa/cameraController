@@ -420,17 +420,17 @@ public:
         return response;
     }
     
-    ZCAMSettings suggestCameraSettings(const ExposureMetrics& metrics) {
-        ZCAMSettings settings;
-        settings.iso = current_iso;
-        settings.exposure_compensation = current_ev;
-        settings.aperture = current_aperture;
-        settings.shutter_angle = current_shutter_angle;
+    // ZCAMSettings suggestCameraSettings(const ExposureMetrics& metrics) {
+    //     ZCAMSettings settings;
+    //     settings.iso = current_iso;
+    //     settings.exposure_compensation = current_ev;
+    //     settings.aperture = current_aperture;
+    //     settings.shutter_angle = current_shutter_angle;
         
-        double brightness_error = metrics.mean_brightness - target_brightness;
-        double sun_factor = getSunAngleFactor();
+    //     double brightness_error = metrics.mean_brightness - target_brightness;
+    //     double sun_factor = getSunAngleFactor();
 
-    }
+    // }
         
     void cleanup() {
         if (sws_ctx) {
