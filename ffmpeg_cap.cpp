@@ -2,6 +2,7 @@
 #include <string>
 #include <vector>
 #include <cstdint>
+#include <algorithm>
 
 // FFmpeg C API headers
 extern "C" {
