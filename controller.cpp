@@ -179,9 +179,7 @@ public:
     
     Mat captureFrame() {
 
-    cv::Mat captureFrame() {
-
-        cv::Mat frame;
+        Mat frame;
         
         // if (rtsp_cap.isOpened()) {
         //     bool ret = rtsp_cap.read(frame);
@@ -191,8 +189,8 @@ public:
         // }
         
         // Fallback: Try to capture via HTTP snapshot or return dummy frame
-        std::string snapshot_url = "http://" + camera_ip + "/ctrl/snapshot";
-        std::string response = sendHTTPRequest(snapshot_url);
+        string snapshot_url = "http://" + camera_ip + "/ctrl/snapshot";
+        string response = sendHTTPRequest(snapshot_url);
         
         // In console mode, create a dummy frame for analysis
         // You could enhance this to actually download and decode the snapshot
@@ -309,7 +307,7 @@ public:
         return (target_iso - lower < upper - target_iso) ? lower : upper;
     }
     
-    std::string findClosestAperture(double target_f) {
+    string findClosestAperture(double target_f) {
         double min_diff = std::numeric_limits<double>::max();
         std::string closest = aperture_values[0];
         
@@ -395,7 +393,7 @@ public:
         return settings;
     }
     
-    std::string getAdjustmentReasoning(double brightness_error, const ExposureMetrics& metrics, double sun_factor) {
+    string getAdjustmentReasoning(double brightness_error, const ExposureMetrics& metrics, double sun_factor) {
         std::vector<std::string> reasons;
         
         if (std::abs(brightness_error) > brightness_tolerance) {
