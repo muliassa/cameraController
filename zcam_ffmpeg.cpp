@@ -142,12 +142,22 @@ public:
             return false;
         }
 
-        // Find video stream
+        std::cout << "   Number of streams: " << format_ctx->nb_streams << std::endl;
+
         for (unsigned int i = 0; i < format_ctx->nb_streams; i++) {
-            if (format_ctx->streams[i] && format_ctx->streams[i]->codecpar && 
-                format_ctx->streams[i]->codecpar->codec_type == AVMEDIA_TYPE_VIDEO) {
-                video_stream_index = i;
-                break;
+            if (format_ctx->streams[i] && format_ctx->streams[i]->codecpar) {
+                AVCodecParameters *codecpar = format_ctx->streams[i]->codecpar;
+                std::cout << "   Stream #" << i << ": type=" << codecpar->codec_type 
+                         << " (VIDEO=" << AVMEDIA_TYPE_VIDEO 
+                         << ", AUDIO=" << AVMEDIA_TYPE_AUDIO << ")" << std::endl;
+                
+                if (codecpar->codec_type == AVMEDIA_TYPE_VIDEO) {
+                    video_stream_index = i;
+                    std::cout << "   ✅ Found video stream at index " << i << std::endl;
+                    break;
+                }
+            } else {
+                std::cout << "   Stream #" << i << ": null stream or codecpar" << std::endl;
             }
         }
         
