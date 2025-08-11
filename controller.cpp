@@ -20,6 +20,7 @@ extern "C" {
 }
 
 struct ExposureMetrics {
+    
     double mean_brightness;
     std::vector<float> histogram;
     double dynamic_range;
@@ -27,6 +28,13 @@ struct ExposureMetrics {
     double clipped_highlights;
     double clipped_shadows;
     double exposure_score;
+   
+    // Advanced metrics
+    double shadows_percent = 0.0;   // 0-85 range
+    double midtones_percent = 0.0;  // 85-170 range  
+    double highlights_percent = 0.0; // 170-255 range
+    double saturation_level = 0.0;  // How close to clipping
+    int total_pixels = 0;
 };
 
 struct ZCAMSettings {
