@@ -246,6 +246,23 @@ public:
         
         return closest;
     }
+    
+    double calculateSunAngleFactor() {
+        auto now = std::chrono::system_clock::now();
+        auto time_t = std::chrono::system_clock::to_time_t(now);
+        auto tm = *std::localtime(&time_t);
+        
+        double hour = tm.tm_hour + tm.tm_min / 60.0;
+        
+        if (hour >= 6.0 && hour <= 22.0) {
+            double solar_noon = 13.0;  // Adjust for your timezone
+            double hour_angle = std::abs(hour - solar_noon);
+            double sun_elevation = 90.0 - (hour_angle * 12.0);  // Rough approximation
+            return std::max(0.1, sun_elevation / 90.0);
+        } else {
+            return 0.1;  // Night time
+        }
+    }
 
    ZCAMSettings recommendSettings(const ExposureMetrics& metrics) {
 
