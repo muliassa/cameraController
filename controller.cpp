@@ -64,7 +64,7 @@ struct LogEntry {
 class ZCAMExposureController {
 private:
     string camera_ip;
-    cv::VideoCapture rtsp_cap;
+    // cv::VideoCapture rtsp_cap;
     CURL *curl;
     
     double target_brightness = 128.0;
@@ -101,26 +101,26 @@ public:
         }
         
         // Initialize RTSP stream
-        std::string rtsp_url = "rtsp://" + camera_ip + "/live_stream";
-        rtsp_cap.open(rtsp_url);
+        // string rtsp_url = "rtsp://" + camera_ip + "/live_stream";
+        // rtsp_cap.open(rtsp_url);
         
-        if (!rtsp_cap.isOpened()) {
-            std::cout << "Warning: Failed to open RTSP stream, will try HTTP stream capture" << std::endl;
-        }
+        // if (!rtsp_cap.isOpened()) {
+        //     std::cout << "Warning: Failed to open RTSP stream, will try HTTP stream capture" << std::endl;
+        // }
         
         // Configure stream settings for optimal monitoring
         configureStreamForMonitoring();
         
-        std::cout << "ZCAM Exposure Controller initialized successfully" << std::endl;
-        std::cout << "Camera IP: " << camera_ip << std::endl;
-        std::cout << "RTSP Stream: " << rtsp_url << std::endl;
+        cout << "ZCAM Exposure Controller initialized successfully" << std::endl;
+        cout << "Camera IP: " << camera_ip << std::endl;
+        cout << "RTSP Stream: " << rtsp_url << std::endl;
     }
     
     ~ZCAMExposureController() {
-        if (rtsp_cap.isOpened()) {
-            rtsp_cap.release();
-        }
-        cv::destroyAllWindows();
+        // if (rtsp_cap.isOpened()) {
+        //     rtsp_cap.release();
+        // }
+        // cv::destroyAllWindows();
         
         if (curl) {
             curl_easy_cleanup(curl);
@@ -177,19 +177,19 @@ public:
         return response;
     }
     
-    cv::Mat captureFrame() {
-        cv::Mat frame;
+    Mat captureFrame() {
+        Mat frame;
         
-        if (rtsp_cap.isOpened()) {
-            bool ret = rtsp_cap.read(frame);
-            if (ret && !frame.empty()) {
-                return frame;
-            }
-        }
+        // if (rtsp_cap.isOpened()) {
+        //     bool ret = rtsp_cap.read(frame);
+        //     if (ret && !frame.empty()) {
+        //         return frame;
+        //     }
+        // }
         
         // Fallback: Try to capture via HTTP snapshot
-        std::string snapshot_url = "http://" + camera_ip + "/ctrl/snapshot";
-        std::string response = sendHTTPRequest(snapshot_url);
+        string snapshot_url = "http://" + camera_ip + "/ctrl/snapshot";
+        string response = sendHTTPRequest(snapshot_url);
         
         // This would need additional implementation to decode the image data
         // For now, return empty frame as fallback
@@ -407,7 +407,7 @@ public:
         }
         
         if (metrics.clipped_shadows > 10.0) {
-            std::ostringstream oss;
+            ostringstream oss;
             oss << "Shadows clipped (" << std::fixed << std::setprecision(1) << metrics.clipped_shadows << "%)";
             reasons.push_back(oss.str());
         }
@@ -430,9 +430,9 @@ public:
     }
     
     bool updateZCAMSettings(const ZCAMSettings& new_settings) {
-        std::cout << "Updating ZCAM settings:" << std::endl;
-        std::cout << "  ISO: " << current_iso << " → " << new_settings.iso << std::endl;
-        std::cout << "  EV: " << std::fixed << std::setprecision(1) << current_ev 
+        cout << "Updating ZCAM settings:" << std::endl;
+        cout << "  ISO: " << current_iso << " → " << new_settings.iso << std::endl;
+        cout << "  EV: " << std::fixed << std::setprecision(1) << current_ev 
                   << " → " << new_settings.exposure_compensation << std::endl;
         std::cout << "  Aperture: f/" << current_aperture << " → f/" << new_settings.aperture << std::endl;
         std::cout << "  Shutter Angle: " << current_shutter_angle << "° → " << new_settings.shutter_angle << "°" << std::endl;
