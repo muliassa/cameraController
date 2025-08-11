@@ -911,9 +911,14 @@ public:
         std::cout << "🧹 Cleaned up" << std::endl;
     }
 
-    static size_t WriteCallback(void *contents, size_t size, size_t nmemb, HTTPResponse *response) {
+    static size_t WriteCallback(void *contents, size_t size, size_t nmemb, void *userp) {
         size_t totalSize = size * nmemb;
-        response->data.append((char*)contents, totalSize);
+        HTTPResponse *response = static_cast<HTTPResponse*>(userp);
+        
+        if (response && contents) {
+            response->data.append(static_cast<char*>(contents), totalSize);
+        }
+        
         return totalSize;
     }
 
