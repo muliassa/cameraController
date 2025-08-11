@@ -692,8 +692,8 @@ public:
                 auto timestamp = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
                 auto tm_stamp = *std::localtime(&timestamp);
                 std::ostringstream filename;
-                filename << "zcam_surf_snapshot_" << std::put_time(&tm_stamp, "%Y%m%d_%H%M%S") << ".jpg";
-                cv::imwrite(filename.str(), frame);
+                // filename << "zcam_surf_snapshot_" << std::put_time(&tm_stamp, "%Y%m%d_%H%M%S") << ".jpg";
+                // cv::imwrite(filename.str(), frame);
                 std::cout << "Snapshot saved: " << filename.str() << std::endl;
             } else if (key == 'r') {
                 // Toggle recording
