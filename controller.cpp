@@ -35,6 +35,10 @@ struct ZCAMSettings {
     std::string aperture;
     int shutter_angle;
     std::string reasoning;
+    
+    // Quality indicators
+    bool is_native_iso = false;
+    double confidence = 0.0;  // 0-1 how confident we are in this recommendation
 };
 
 struct CameraState {
