@@ -75,9 +75,11 @@ struct LogEntry {
 };
 
 struct HTTPResponse {
-    string data;
+    std::string data;
     long response_code;
     bool success;
+    
+    HTTPResponse() : response_code(0), success(false) {}
 };
 
 class ZCAMFFmpegController {
@@ -967,7 +969,7 @@ public:
         if (headers) {
             curl_slist_free_all(headers);
         }
-        
+
         // Get response info
         curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &response.response_code);
         
@@ -981,6 +983,7 @@ public:
         }
         
         return response;
+
     }
 
     bool getCurrentCameraSettings() {
@@ -991,13 +994,28 @@ public:
         if (iso_resp.success) {
             Json::Value root;
             Json::Reader reader;
-            if (reader.parse(iso_resp.data, root) && root.isMember("value")) {
-                std::string iso_str = root["value"].asString();
-                camera_state.current_iso = std::stoi(iso_str);
-                std::cout << "   📊 Current ISO: " << camera_state.current_iso << std::endl;
+            if (reader.parse(iso_resp.data, root)) {
+                if (root.isMember("code") && root["code"].asInt() == 0 && root.isMember("value")) {
+                    std::string iso_str = root["value"].asString();
+                    camera_state.current_iso = std::stoi(iso_str);
+                    std::cout << "   📊 Current ISO: " << camera_state.current_iso << std::endl;
+                }               
             }
         } else {
             std::cout << "   ⚠️ Could not read ISO (HTTP " << iso_resp.response_code << ")" << std::endl;
+        }
+
+        
+        // Show available ISO options
+        if (root.isMember("opts") && root["opts"].isArray()) {
+            std::cout << "   🎚️ Available ISOs: ";
+            for (const auto& iso_opt : root["opts"]) {
+                std::cout << iso_opt.asString() << " ";
+            }
+            std::cout << std::endl;
+        } else {
+            std::cout << "   ❌ Unexpected ISO response format" << std::endl;
+            std::cout << "   Response: " << iso_resp.data << std::endl;
         }
 
         return iso_resp.success;
