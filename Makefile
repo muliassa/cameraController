@@ -12,7 +12,8 @@ TARGET = $(BUILD_DIR)/cameraController
 # Include directories
 INCLUDES = 	-Iincludes \
 			-I/usr/include/opencv4 \
-			-I/usr/include/x86_64-linux-gnu
+			-I/usr/include/x86_64-linux-gnu \
+			-I/usr/include/jsoncpp
 
 # Library directories
 LIB_DIRS = 
