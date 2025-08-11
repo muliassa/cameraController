@@ -3,6 +3,8 @@
 #include <vector>
 #include <cstdint>
 #include <algorithm>
+#include <curl/curl.h>
+#include <json/json.h>
 
 // FFmpeg C API headers
 extern "C" {
