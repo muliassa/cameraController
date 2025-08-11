@@ -65,7 +65,7 @@ class ZCAMExposureController {
 
 private:
     string camera_ip;
-    cv::VideoCapture rtsp_cap;
+    // cv::VideoCapture rtsp_cap;
     CURL *curl;
     
     double target_brightness = 128.0;
@@ -102,15 +102,15 @@ public:
         }
         
         // Initialize RTSP stream
-        string rtsp_url = "rtsp://" + camera_ip + "/live_stream";
-        rtsp_cap.open(rtsp_url);
+        // string rtsp_url = "rtsp://" + camera_ip + "/live_stream";
+        // rtsp_cap.open(rtsp_url);
         
-        if (!rtsp_cap.isOpened()) {
-            std::cout << "Warning: Failed to open RTSP stream, will try HTTP stream capture" << std::endl;
-        }
+        // if (!rtsp_cap.isOpened()) {
+        //     std::cout << "Warning: Failed to open RTSP stream, will try HTTP stream capture" << std::endl;
+        // }
         
         // Configure stream settings for optimal monitoring
-        configureStreamForMonitoring();
+        // configureStreamForMonitoring();
         
         cout << "ZCAM Exposure Controller initialized successfully" << std::endl;
         cout << "Camera IP: " << camera_ip << std::endl;
@@ -118,10 +118,10 @@ public:
     }
     
     ~ZCAMExposureController() {
-        if (rtsp_cap.isOpened()) {
-            rtsp_cap.release();
-        }
-        cv::destroyAllWindows();
+        // if (rtsp_cap.isOpened()) {
+        //     rtsp_cap.release();
+        // }
+        // cv::destroyAllWindows();
         
         if (curl) {
             curl_easy_cleanup(curl);
@@ -631,7 +631,7 @@ public:
         std::cout << "==========================================\n" << std::endl;
         
         while (true) {
-            cv::Mat frame = captureFrame();
+            Mat frame = captureFrame();
             if (frame.empty()) {
                 std::cout << "No frame available, checking stream..." << std::endl;
                 std::this_thread::sleep_for(std::chrono::seconds(5));
@@ -795,18 +795,18 @@ public:
         Mat frame;
         
         // Use RTSP stream1 (monitoring) - NOT stream0 (recording)
-        if (!rtsp_cap.isOpened()) {
-            std::string rtsp_url = "rtsp://" + camera_ip + "/stream1";  // stream1 only!
-            rtsp_cap.open(rtsp_url);
-        }
+        // if (!rtsp_cap.isOpened()) {
+        //     std::string rtsp_url = "rtsp://" + camera_ip + "/stream1";  // stream1 only!
+        //     rtsp_cap.open(rtsp_url);
+        // }
         
-        if (rtsp_cap.isOpened()) {
-            bool ret = rtsp_cap.read(frame);
-            if (ret && !frame.empty()) {
-                std::cout << "✅ RTSP frame: " << frame.cols << "x" << frame.rows << std::endl;
-                return frame;
-            }
-        }
+        // if (rtsp_cap.isOpened()) {
+        //     bool ret = rtsp_cap.read(frame);
+        //     if (ret && !frame.empty()) {
+        //         std::cout << "✅ RTSP frame: " << frame.cols << "x" << frame.rows << std::endl;
+        //         return frame;
+        //     }
+        // }
         
         std::cout << "❌ No RTSP frame available" << std::endl;
         return cv::Mat();
