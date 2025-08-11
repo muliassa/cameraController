@@ -429,6 +429,8 @@ public:
         
         double brightness_error = metrics.mean_brightness - target_brightness;
         double sun_factor = getSunAngleFactor();
+
+    }
         
     void cleanup() {
         if (sws_ctx) {
@@ -528,7 +530,7 @@ public:
     // Getters for current settings
     int getCurrentISO() const { return current_iso; }
     double getCurrentEV() const { return current_ev; }
-    std::string getCurrentAperture() const { return current_aperture; }
+    string getCurrentAperture() const { return current_aperture; }
     int getCurrentShutterAngle() const { return current_shutter_angle; }
 };
 
