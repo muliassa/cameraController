@@ -988,12 +988,13 @@ public:
 
     bool getCurrentCameraSettings() {
         std::cout << "🔍 Reading current ZCAM E8 Z2 settings..." << std::endl;
+
+        Json::Value root;
+        Json::Reader reader;
         
         // Get current ISO - using your working JS format
         HTTPResponse iso_resp = curlHTTPRequest("/ctrl/get?k=iso");
         if (iso_resp.success) {
-            Json::Value root;
-            Json::Reader reader;
             if (reader.parse(iso_resp.data, root)) {
                 if (root.isMember("code") && root["code"].asInt() == 0 && root.isMember("value")) {
                     std::string iso_str = root["value"].asString();
