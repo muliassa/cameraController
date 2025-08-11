@@ -23,7 +23,8 @@ LIB_DIRS = -L/lib/x86_64-linux-gnu/
 #        -lavformat -lavcodec -lavutil
 
 # Libraries - CUDA 12.x NPP libraries with explicit FFmpeg 6.1.1 paths
-LIBS = -lopencv_core -lopencv_imgproc -lopencv_videoio -lcurl -ljsoncpp
+LIBS = -lopencv_core -lopencv_imgproc -lopencv_videoio -lcurl -ljsoncpp \
+    -Wl,--exclude-libs,libgdal.so.34
 
 # Compiler flags
 CXXFLAGS = -std=c++17 -O2 -Wall
