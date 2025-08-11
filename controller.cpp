@@ -967,6 +967,8 @@ public:
         } else {
             std::cout << "   ⚠️ Could not read ISO (HTTP " << iso_resp.response_code << ")" << std::endl;
         }
+
+        return iso_resp.success;
         
         // Get white balance for context
         HTTPResponse wb_resp = curlHTTPRequest("/ctrl/get?k=wb");
