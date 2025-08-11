@@ -224,73 +224,140 @@ public:
         
         return closest;
     }
-    
-    ZCAMSettings suggestCameraSettings(const ExposureMetrics& metrics) {
+
+   ZCAMSettings recommendSettings(const ExposureMetrics& metrics) {
+
         ZCAMSettings settings;
-        double brightness_error = metrics.mean_brightness - target_brightness;
-        double sun_factor = getSunAngleFactor();
+        settings.iso = camera_state.current_iso;
+        settings.exposure_compensation = camera_state.current_ev;
+        settings.aperture = camera_state.current_aperture;
+        settings.shutter_angle = camera_state.current_shutter_angle;
+        settings.confidence = 0.5;  // Default confidence
         
-        // Start with current settings
-        settings.iso = current_iso;
-        settings.exposure_compensation = current_ev;
-        settings.aperture = current_aperture;
-        settings.shutter_angle = current_shutter_angle;
+        double brightness_error = metrics.mean_brightness - camera_state.target_brightness;
+        camera_state.sun_factor = calculateSunAngleFactor();
         
-        // ISO adjustment logic
-        if (metrics.mean_brightness < target_brightness - brightness_tolerance) {
-            // Too dark - increase ISO (prefer native ISO values)
-            int target_iso = static_cast<int>(current_iso * 1.6);
-            
-            // Prefer native ISO values when possible
-            if (target_iso >= 2500) {
-                settings.iso = 2500; // High native ISO
-            } else if (target_iso >= 500) {
-                // Choose between native ISOs or find closest
-                if (std::abs(target_iso - 500) < std::abs(target_iso - 2500)) {
-                    settings.iso = 500;
-                } else {
-                    settings.iso = findClosestISO(target_iso);
-                }
-            } else {
-                settings.iso = findClosestISO(target_iso);
+        std::vector<std::string> reasons;
+        
+        // ISO recommendations (prefer ZCAM native ISOs: 500, 2500)
+        if (brightness_error < -camera_state.brightness_tolerance) {
+            // Too dark - increase ISO
+            if (camera_state.current_iso <= 500) {
+                settings.iso = 2500;  // Jump to high native ISO for significant darkness
+                reasons.push_back("Dark scene - jump to native ISO 2500");
+                settings.confidence += 0.3;
+                settings.is_native_iso = true;
+            } else if (camera_state.current_iso < 2500) {
+                settings.iso = 2500;  // Go to native high ISO
+                reasons.push_back("Increase to native ISO 2500");
+                settings.confidence += 0.3;
+                settings.is_native_iso = true;
+            } else if (camera_state.current_iso == 2500 && brightness_error < -30) {
+                settings.iso = 5000;  // Only go higher if very dark
+                reasons.push_back("Very dark - increase beyond native ISO");
+                settings.confidence += 0.2;
             }
-            
-        } else if (metrics.mean_brightness > target_brightness + brightness_tolerance) {
+        } else if (brightness_error > camera_state.brightness_tolerance) {
             // Too bright - decrease ISO
-            int target_iso = static_cast<int>(current_iso / 1.4);
-            
-            if (target_iso <= 500) {
-                settings.iso = 500; // Low native ISO
-            } else {
-                settings.iso = findClosestISO(target_iso);
+            if (camera_state.current_iso > 2500) {
+                settings.iso = 2500;  // Back to high native
+                reasons.push_back("Reduce to native ISO 2500");
+                settings.confidence += 0.2;
+                settings.is_native_iso = true;
+            } else if (camera_state.current_iso == 2500) {
+                settings.iso = 500;   // Back to low native
+                reasons.push_back("Bright scene - reduce to native ISO 500");
+                settings.confidence += 0.3;
+                settings.is_native_iso = true;
+            } else if (camera_state.current_iso > 500) {
+                settings.iso = 500;   // Back to low native
+                reasons.push_back("Return to native ISO 500");
+                settings.confidence += 0.2;
+                settings.is_native_iso = true;
+            }
+        } else {
+            // Brightness OK - optimize for native ISO if not already
+            if (camera_state.current_iso != 500 && camera_state.current_iso != 2500) {
+                // Choose the native ISO that's closer to current
+                if (camera_state.current_iso < 1250) {
+                    settings.iso = 500;
+                    reasons.push_back("Optimize to native ISO 500");
+                } else {
+                    settings.iso = 2500;
+                    reasons.push_back("Optimize to native ISO 2500");
+                }
+                settings.confidence += 0.1;
+                settings.is_native_iso = true;
             }
         }
         
-        // EV compensation for fine tuning
-        if (metrics.clipped_highlights > 5.0) {
-            settings.exposure_compensation = max(current_ev - 0.5, ev_range.first);
-        } else if (metrics.clipped_shadows > 10.0 && metrics.mean_brightness < 100.0) {
-            settings.exposure_compensation = min(current_ev + 0.3, ev_range.second);
+        // EV compensation for fine-tuning
+        if (metrics.clipped_highlights > 3.0) {
+            settings.exposure_compensation = std::max(camera_state.current_ev - 0.7, -2.0);
+            reasons.push_back("Reduce EV (highlight protection)");
+            settings.confidence += 0.2;
+        } else if (metrics.clipped_shadows > 8.0 && metrics.mean_brightness < 100.0) {
+            settings.exposure_compensation = std::min(camera_state.current_ev + 0.5, 2.0);
+            reasons.push_back("Increase EV (shadow recovery)");
+            settings.confidence += 0.2;
+        } else if (metrics.saturation_level > 15.0) {
+            settings.exposure_compensation = std::max(camera_state.current_ev - 0.3, -2.0);
+            reasons.push_back("Slight EV reduction (saturation protection)");
+            settings.confidence += 0.1;
         }
         
-        // Aperture adjustment based on lighting and depth of field needs
-        double current_f = stod(current_aperture);
-        if (sun_factor > 0.8) {
-            // Bright daylight - smaller aperture for sharpness and surf detail
-            settings.aperture = findClosestAperture(std::min(8.0, current_f + 1.0));
-        } else if (sun_factor < 0.3) {
-            // Low light - wider aperture
-            settings.aperture = findClosestAperture(std::max(2.8, current_f - 1.0));
+        // Aperture recommendations based on lighting and scene
+        if (camera_state.sun_factor > 0.8) {
+            // Bright daylight
+            settings.aperture = "8.0";
+            if (camera_state.current_aperture != "8.0") {
+                reasons.push_back("Daylight aperture for sharpness");
+                settings.confidence += 0.1;
+            }
+        } else if (camera_state.sun_factor < 0.3) {
+            // Low light
+            settings.aperture = "2.8";
+            if (camera_state.current_aperture != "2.8") {
+                reasons.push_back("Wide aperture for low light");
+                settings.confidence += 0.2;
+            }
+        } else if (metrics.contrast > 60.0) {
+            // High contrast scene
+            settings.aperture = "5.6";
+            reasons.push_back("Balanced aperture for contrast");
         }
         
-        // Shutter angle for surf motion (180° is standard for natural motion)
-        if (sun_factor > 0.6) {
-            settings.shutter_angle = 180; // Standard for good motion blur
+        // Shutter angle for surf motion
+        if (camera_state.sun_factor > 0.6 && metrics.contrast > 40.0) {
+            settings.shutter_angle = 180;  // Standard cinematic motion
+        } else if (metrics.mean_brightness < 80.0) {
+            settings.shutter_angle = 270;  // More light for low conditions
+            if (camera_state.current_shutter_angle != 270) {
+                reasons.push_back("Wider shutter for low light");
+                settings.confidence += 0.1;
+            }
+        }
+        
+        // Generate reasoning
+        if (reasons.empty()) {
+            settings.reasoning = "Current settings optimal for conditions";
+            settings.confidence = std::max(0.8, settings.confidence);
         } else {
-            settings.shutter_angle = 270; // Wider for more light in low conditions
+            settings.reasoning = reasons[0];
+            for (size_t i = 1; i < reasons.size() && i < 3; i++) {
+                settings.reasoning += "; " + reasons[i];
+            }
         }
         
-        settings.reasoning = getAdjustmentReasoning(brightness_error, metrics, sun_factor);
+        // Adjust confidence based on scene complexity
+        if (metrics.contrast < 15.0 || metrics.contrast > 80.0) {
+            settings.confidence *= 0.8;  // Lower confidence in extreme contrast
+        }
+        if (metrics.exposure_score > 75.0) {
+            settings.confidence += 0.1;  // Higher confidence when current exposure is good
+        }
+        
+        settings.confidence = std::min(1.0, settings.confidence);
         
         return settings;
     }
@@ -811,7 +878,7 @@ int main(int argc, char* argv[]) {
             // Analyze exposure
                 ExposureMetrics metrics = controller.analyzeExposure(rgb_data, width, height);
                 
-                std::cout << "📊 Brightness: " << std::fixed << setprecision(1) 
+                std::cout << "📊 Brightness: " << fixed << setprecision(1) 
                          << metrics.mean_brightness << "/255";
                 
                 if (metrics.mean_brightness < 100) {
@@ -829,13 +896,15 @@ int main(int argc, char* argv[]) {
                 std::cout << "📊 Exposure score: " << metrics.exposure_score << "/100" << std::endl;
                 
                 // Get camera adjustment suggestions
-                ZCAMSettings suggested = controller.suggestCameraSettings(metrics);
+
+                ZCAMSettings suggested = recommendSettings(const ExposureMetrics& metrics) {
+
                 cout << "💡 Analysis: " << suggested.reasoning << std::endl;
                 cout << "   ISO: " << controller.getCurrentISO() << " → " << suggested.iso;
                 cout << "💡 Suggested ISO: " << suggested.iso << std::endl;
                 
                 if (suggested.iso != controller.getCurrentISO() || 
-                    std::abs(suggested.exposure_compensation - controller.getCurrentEV()) > 0.1) {
+                    abs(suggested.exposure_compensation - controller.getCurrentEV()) > 0.1) {
                     std::cout << "🔧 Suggested ZCAM adjustments:" << std::endl;
                     std::cout << "   ISO: " << controller.getCurrentISO() << " → " << suggested.iso;
                     if (suggested.iso == 500 || suggested.iso == 2500) {

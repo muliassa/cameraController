@@ -643,7 +643,7 @@ int main(int argc, char* argv[]) {
                 // Analyze exposure
                 ExposureMetrics metrics = controller.analyzeExposure(rgb_data, width, height);
                 
-                std::cout << "📊 Brightness: " << std::fixed << std::setprecision(1) 
+                std::cout << "📊 Brightness: " << std::fixed << setprecision(1) 
                          << metrics.mean_brightness << "/255";
                 
                 if (metrics.mean_brightness < 100) {
