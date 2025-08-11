@@ -70,25 +70,21 @@ public:
         
         std::cout << "✅ Connected to RTSP stream" << std::endl;
         
-        // Find stream info
-        std::cout << "🔍 Finding stream info..." << std::endl;
-        format_ctx->max_analyze_duration = 3000000; // 3 seconds max
+        // Skip stream info detection - it's causing segfault
+        std::cout << "⚠️ Skipping stream info analysis (causes segfault with this camera)" << std::endl;
+        std::cout << "🔍 Using manual stream detection..." << std::endl;
         
-        ret = avformat_find_stream_info(format_ctx, nullptr);
-        if (ret < 0) {
-            std::cout << "⚠️ Stream info failed, trying manual detection..." << std::endl;
-            if (!findVideoStreamManually()) {
-                return false;
-            }
-        } else {
-            // Find video stream the normal way
-            for (unsigned int i = 0; i < format_ctx->nb_streams; i++) {
-                if (format_ctx->streams[i]->codecpar->codec_type == AVMEDIA_TYPE_VIDEO) {
-                    video_stream_index = i;
-                    std::cout << "✅ Found video stream at index " << i << std::endl;
-                    break;
-                }
-            }
+        // Check basic stream count first
+        std::cout << "📊 Found " << format_ctx->nb_streams << " streams" << std::endl;
+        
+        if (format_ctx->nb_streams == 0) {
+            std::cout << "❌ No streams found in RTSP feed" << std::endl;
+            return false;
+        }
+        
+        // Try to find video stream without calling avformat_find_stream_info
+        if (!findVideoStreamManually()) {
+            return false;
         }
         
         if (video_stream_index == -1) {
@@ -102,41 +98,107 @@ public:
     bool findVideoStreamManually() {
         std::cout << "🔍 Manual stream detection..." << std::endl;
         
-        // Read a few packets to find video stream
-        AVPacket *pkt = av_packet_alloc();
-        if (!pkt) return false;
+        // First, check stream parameters directly if available
+        for (unsigned int i = 0; i < format_ctx->nb_streams; i++) {
+            AVStream *stream = format_ctx->streams[i];
+            if (stream && stream->codecpar) {
+                std::cout << "   Stream #" << i << ": codec_type=" << stream->codecpar->codec_type;
+                std::cout << " (VIDEO=" << AVMEDIA_TYPE_VIDEO << ")" << std::endl;
+                
+                if (stream->codecpar->codec_type == AVMEDIA_TYPE_VIDEO) {
+                    video_stream_index = i;
+                    std::cout << "✅ Found video stream at index " << i << " (direct check)" << std::endl;
+                    return true;
+                }
+            }
+        }
         
-        for (int i = 0; i < 50; i++) { // Try up to 50 packets
+        // If direct check failed, try packet-based detection
+        std::cout << "🔍 Trying packet-based detection..." << std::endl;
+        
+        AVPacket *pkt = av_packet_alloc();
+        if (!pkt) {
+            std::cout << "❌ Failed to allocate packet" << std::endl;
+            return false;
+        }
+        
+        std::vector<int> stream_sizes(format_ctx->nb_streams, 0);
+        std::vector<int> stream_counts(format_ctx->nb_streams, 0);
+        
+        for (int i = 0; i < 20; i++) { // Read fewer packets to avoid issues
             int ret = av_read_frame(format_ctx, pkt);
-            if (ret < 0) break;
-            
-            // Look for substantial packets (likely video)
-            if (pkt->size > 1000) {
-                video_stream_index = pkt->stream_index;
-                std::cout << "🎥 Found video stream #" << video_stream_index 
-                         << " (packet size: " << pkt->size << ")" << std::endl;
-                av_packet_unref(pkt);
+            if (ret < 0) {
+                char errbuf[AV_ERROR_MAX_STRING_SIZE];
+                av_make_error_string(errbuf, AV_ERROR_MAX_STRING_SIZE, ret);
+                std::cout << "   Read error on packet " << i << ": " << errbuf << std::endl;
                 break;
+            }
+            
+            if (pkt->stream_index < static_cast<int>(stream_sizes.size())) {
+                stream_sizes[pkt->stream_index] += pkt->size;
+                stream_counts[pkt->stream_index]++;
             }
             
             av_packet_unref(pkt);
         }
         
+        // Find stream with most data (likely video)
+        int best_stream = -1;
+        int max_data = 0;
+        
+        for (size_t i = 0; i < stream_sizes.size(); i++) {
+            std::cout << "   Stream #" << i << ": " << stream_counts[i] 
+                     << " packets, " << stream_sizes[i] << " bytes total" << std::endl;
+            
+            if (stream_sizes[i] > max_data && stream_sizes[i] > 5000) { // At least 5KB
+                max_data = stream_sizes[i];
+                best_stream = static_cast<int>(i);
+            }
+        }
+        
+        if (best_stream >= 0) {
+            video_stream_index = best_stream;
+            std::cout << "✅ Assuming stream #" << best_stream << " is video (largest data)" << std::endl;
+            av_packet_free(&pkt);
+            return true;
+        }
+        
         av_packet_free(&pkt);
-        return video_stream_index >= 0;
+        std::cout << "❌ Could not identify video stream" << std::endl;
+        return false;
     }
     
     bool setupDecoder() {
         std::cout << "🔧 Setting up decoder..." << std::endl;
         
-        AVCodecParameters *codec_params = format_ctx->streams[video_stream_index]->codecpar;
+        if (video_stream_index < 0 || video_stream_index >= (int)format_ctx->nb_streams) {
+            std::cout << "❌ Invalid video stream index: " << video_stream_index << std::endl;
+            return false;
+        }
+        
+        AVStream *video_stream = format_ctx->streams[video_stream_index];
+        if (!video_stream || !video_stream->codecpar) {
+            std::cout << "❌ Invalid video stream or codec parameters" << std::endl;
+            return false;
+        }
+        
+        AVCodecParameters *codec_params = video_stream->codecpar;
+        
+        std::cout << "📊 Stream info:" << std::endl;
+        std::cout << "   Codec ID: " << codec_params->codec_id << std::endl;
+        std::cout << "   Codec type: " << codec_params->codec_type << std::endl;
+        std::cout << "   Width: " << codec_params->width << std::endl;
+        std::cout << "   Height: " << codec_params->height << std::endl;
         
         // Find decoder
         codec = avcodec_find_decoder(codec_params->codec_id);
         if (!codec) {
-            std::cout << "❌ Codec not found: " << avcodec_get_name(codec_params->codec_id) << std::endl;
+            std::cout << "❌ Codec not found for ID: " << codec_params->codec_id << std::endl;
+            std::cout << "   Codec name: " << avcodec_get_name(codec_params->codec_id) << std::endl;
             return false;
         }
+        
+        std::cout << "✅ Found codec: " << codec->name << std::endl;
         
         // Allocate codec context
         codec_ctx = avcodec_alloc_context3(codec);
@@ -145,21 +207,28 @@ public:
             return false;
         }
         
-        // Copy codec parameters
-        if (avcodec_parameters_to_context(codec_ctx, codec_params) < 0) {
-            std::cout << "❌ Failed to copy codec parameters" << std::endl;
+        // Copy codec parameters - add error checking
+        int ret = avcodec_parameters_to_context(codec_ctx, codec_params);
+        if (ret < 0) {
+            char errbuf[AV_ERROR_MAX_STRING_SIZE];
+            av_make_error_string(errbuf, AV_ERROR_MAX_STRING_SIZE, ret);
+            std::cout << "❌ Failed to copy codec parameters: " << errbuf << std::endl;
             return false;
         }
         
-        // Open codec
-        if (avcodec_open2(codec_ctx, codec, nullptr) < 0) {
-            std::cout << "❌ Failed to open codec" << std::endl;
+        // Open codec with error checking
+        ret = avcodec_open2(codec_ctx, codec, nullptr);
+        if (ret < 0) {
+            char errbuf[AV_ERROR_MAX_STRING_SIZE];
+            av_make_error_string(errbuf, AV_ERROR_MAX_STRING_SIZE, ret);
+            std::cout << "❌ Failed to open codec: " << errbuf << std::endl;
             return false;
         }
         
         std::cout << "✅ Decoder ready" << std::endl;
         std::cout << "   Resolution: " << codec_ctx->width << "x" << codec_ctx->height << std::endl;
         std::cout << "   Codec: " << codec->name << std::endl;
+        std::cout << "   Pixel format: " << av_get_pix_fmt_name(codec_ctx->pix_fmt) << std::endl;
         
         return true;
     }
