@@ -883,7 +883,9 @@ public:
     }
     
     // Getters for current settings
+    CameraState getCameraState() { return camera_state; }
     bool getAutoAdjustEnabled() { return auto_adjust_enabled; }
+    double getConfidenceThreshold() { return confidence_threshold; }
     int getCurrentISO() const { return current_iso; }
     double getCurrentEV() const { return current_ev; }
     std::string getCurrentAperture() const { return current_aperture; }
@@ -1038,12 +1040,14 @@ int main(int argc, char* argv[]) {
         if (autoAdjust) {
             controller.getCurrentCameraSettings();
         }
+
+        auto cameraState = controller.getCameraState();
         
         std::cout << "\n🎬 Starting exposure monitoring with auto-control..." << std::endl;
-        std::cout << "📊 Target brightness: " << camera_state.target_brightness << "/255" << std::endl;
+        std::cout << "📊 Target brightness: " << cameraState.target_brightness << "/255" << std::endl;
         std::cout << "⏱️  Analysis interval: 15 seconds" << std::endl;
         std::cout << "🤖 Auto-adjust: " << (autoAdjust ? "ENABLED" : "DISABLED") << std::endl;
-        std::cout << "🎚️ Confidence threshold: " << (confidence_threshold * 100) << "%" << std::endl;
+        std::cout << "🎚️ Confidence threshold: " << (controller.getConfidenceThreshold() * 100) << "%" << std::endl;
         std::cout << "Press Ctrl+C to stop\n" << std::endl;
         
         // Try to capture ONE frame
