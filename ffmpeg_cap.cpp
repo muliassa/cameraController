@@ -32,17 +32,30 @@ struct ZCAMSettings {
     std::string reasoning;
 };
 
-class SimpleZCAMCapture {
+class ZCAMFFmpegController {
 private:
+    std::string camera_ip;
     std::string rtsp_url;
+    CURL *curl;
+    
+    // FFmpeg components
     AVFormatContext *format_ctx = nullptr;
     AVCodecContext *codec_ctx = nullptr;
-    const AVCodec *codec = nullptr;
+    const AVCodec *codec = nullptr;  // Use const AVCodec* for newer FFmpeg versions
     SwsContext *sws_ctx = nullptr;
     int video_stream_index = -1;
+    
+    // Current camera settings
+    int current_iso = 500;
+    double current_ev = 0.0;
+    std::string current_aperture = "5.6";
+    int current_shutter_angle = 180;
+    
+    double target_brightness = 128.0;
+    double brightness_tolerance = 15.0;
 
 public:
-    SimpleZCAMCapture(const std::string& camera_ip) {
+    ZCAMFFmpegController(const std::string& camera_ip) {
         rtsp_url = "rtsp://" + camera_ip + "/live_stream";
         
         // Initialize FFmpeg
@@ -55,7 +68,7 @@ public:
         std::cout << "📡 RTSP URL: " << rtsp_url << std::endl;
     }
     
-    ~SimpleZCAMCapture() {
+    ~ZCAMFFmpegController() {
         cleanup();
         avformat_network_deinit();
     }
@@ -593,10 +606,10 @@ int main(int argc, char* argv[]) {
     }
     
     try {
-        SimpleZCAMCapture capture(camera_ip);
+        ZCAMFFmpegController controller(camera_ip);
         
         // Connect to camera
-        if (!capture.connect()) {
+        if (!controller.connect()) {
             std::cout << "❌ Failed to connect to camera" << std::endl;
             return -1;
         }
@@ -605,7 +618,7 @@ int main(int argc, char* argv[]) {
         std::vector<uint8_t> rgb_data;
         int width, height;
         
-        if (capture.captureOneFrame(rgb_data, width, height)) {
+        if (controller.captureOneFrame(rgb_data, width, height)) {
             std::cout << "\n🎉 SUCCESS!" << std::endl;
             std::cout << "📊 Frame captured: " << width << "x" << height << std::endl;
             std::cout << "📊 RGB data size: " << rgb_data.size() << " bytes" << std::endl;
