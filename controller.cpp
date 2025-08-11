@@ -104,7 +104,9 @@ public:
         }
 
         // Configure stream settings for optimal monitoring
-        configureStreamForMonitoring();
+        // configureStreamForMonitoring();
+
+        initializeStream();
         
         std::cout << "ZCAM Exposure Controller initialized successfully" << std::endl;
         std::cout << "Camera IP: " << camera_ip << std::endl;
@@ -937,6 +939,173 @@ public:
             initialized = false;
             return cv::Mat();
         }
+    }
+    
+    bool initializeStream() {
+        std::cout << "🔌 Connecting to ZCAM RTSP stream..." << std::endl;
+        
+        // Allocate format context
+        format_ctx = avformat_alloc_context();
+        if (!format_ctx) {
+            std::cout << "❌ Failed to allocate format context" << std::endl;
+            return false;
+        }
+        
+        // Set RTSP options - CRITICAL: TCP transport for ZCAM
+        AVDictionary *options = nullptr;
+        av_dict_set(&options, "rtsp_transport", "tcp", 0);     // ZCAM requires TCP!
+        av_dict_set(&options, "timeout", "10000000", 0);       // 10 seconds
+        av_dict_set(&options, "max_delay", "5000000", 0);      // 5 seconds max delay
+        av_dict_set(&options, "buffer_size", "1024000", 0);    // 1MB buffer
+        av_dict_set(&options, "rtsp_flags", "prefer_tcp", 0);  // Force TCP
+        av_dict_set(&options, "user_agent", "ZCAMController/1.0", 0);
+        
+        std::cout << "   Using TCP transport (required for ZCAM)" << std::endl;
+        std::cout << "   URL: " << rtsp_url << std::endl;
+        
+        // Open input stream with ZCAM-compatible options
+        int ret = avformat_open_input(&format_ctx, rtsp_url.c_str(), nullptr, &options);
+        
+        // Clean up options dictionary
+        av_dict_free(&options);
+        
+        if (ret < 0) {
+            char errbuf[AV_ERROR_MAX_STRING_SIZE];
+            av_strerror(ret, errbuf, AV_ERROR_MAX_STRING_SIZE);
+            std::cout << "❌ Failed to open RTSP stream: " << errbuf << std::endl;
+            return false;
+        }
+        
+        std::cout << "✅ RTSP connection established" << std::endl;
+        
+        // Find stream information
+        if (avformat_find_stream_info(format_ctx, nullptr) < 0) {
+            std::cout << "❌ Failed to find stream info" << std::endl;
+            return false;
+        }
+        
+        // Find video stream
+        for (unsigned int i = 0; i < format_ctx->nb_streams; i++) {
+            if (format_ctx->streams[i]->codecpar->codec_type == AVMEDIA_TYPE_VIDEO) {
+                video_stream_index = i;
+                break;
+            }
+        }
+        
+        if (video_stream_index == -1) {
+            std::cout << "❌ No video stream found" << std::endl;
+            return false;
+        }
+        
+        // Get codec parameters
+        AVCodecParameters *codec_params = format_ctx->streams[video_stream_index]->codecpar;
+        
+        // Find decoder
+        codec = avcodec_find_decoder(codec_params->codec_id);
+        if (!codec) {
+            std::cout << "❌ Codec not supported" << std::endl;
+            return false;
+        }
+        
+        // Allocate codec context
+        codec_ctx = avcodec_alloc_context3(codec);
+        if (!codec_ctx) {
+            std::cout << "❌ Failed to allocate codec context" << std::endl;
+            return false;
+        }
+        
+        // Copy codec parameters
+        if (avcodec_parameters_to_context(codec_ctx, codec_params) < 0) {
+            std::cout << "❌ Failed to copy codec parameters" << std::endl;
+            return false;
+        }
+        
+        // Open codec
+        if (avcodec_open2(codec_ctx, codec, nullptr) < 0) {
+            std::cout << "❌ Failed to open codec" << std::endl;
+            return false;
+        }
+        
+        std::cout << "✅ Video decoder initialized" << std::endl;
+        std::cout << "   Resolution: " << codec_ctx->width << "x" << codec_ctx->height << std::endl;
+        std::cout << "   Codec: " << codec->name << std::endl;
+        std::cout << "   Pixel Format: " << av_get_pix_fmt_name(codec_ctx->pix_fmt) << std::endl;
+        
+        return true;
+    }
+    
+    bool captureFrame(std::vector<uint8_t>& rgb_data, int& width, int& height) {
+        if (!format_ctx || !codec_ctx) {
+            std::cout << "❌ Stream not initialized" << std::endl;
+            return false;
+        }
+        
+        AVPacket *packet = av_packet_alloc();
+        AVFrame *frame = av_frame_alloc();
+        AVFrame *rgb_frame = av_frame_alloc();
+        
+        if (!packet || !frame || !rgb_frame) {
+            std::cout << "❌ Failed to allocate frames" << std::endl;
+            av_packet_free(&packet);
+            av_frame_free(&frame);
+            av_frame_free(&rgb_frame);
+            return false;
+        }
+        
+        bool frame_captured = false;
+        
+        // Read packets until we get a video frame
+        while (av_read_frame(format_ctx, packet) >= 0) {
+            if (packet->stream_index == video_stream_index) {
+                // Send packet to decoder
+                if (avcodec_send_packet(codec_ctx, packet) == 0) {
+                    // Receive frame from decoder
+                    if (avcodec_receive_frame(codec_ctx, frame) == 0) {
+                        // Convert to RGB
+                        width = frame->width;
+                        height = frame->height;
+                        
+                        // Initialize scaler if needed
+                        if (!sws_ctx) {
+                            sws_ctx = sws_getContext(
+                                width, height, (AVPixelFormat)frame->format,
+                                width, height, AV_PIX_FMT_RGB24,
+                                SWS_BILINEAR, nullptr, nullptr, nullptr
+                            );
+                        }
+                        
+                        if (sws_ctx) {
+                            // Allocate RGB buffer
+                            int rgb_size = av_image_get_buffer_size(AV_PIX_FMT_RGB24, width, height, 1);
+                            rgb_data.resize(rgb_size);
+                            
+                            // Setup RGB frame
+                            av_image_fill_arrays(rgb_frame->data, rgb_frame->linesize,
+                                                rgb_data.data(), AV_PIX_FMT_RGB24, width, height, 1);
+                            
+                            // Convert frame to RGB
+                            sws_scale(sws_ctx, frame->data, frame->linesize, 0, height,
+                                    rgb_frame->data, rgb_frame->linesize);
+                            
+                            frame_captured = true;
+                        }
+                        
+                        break;
+                    }
+                }
+            }
+            av_packet_unref(packet);
+        }
+        
+        av_packet_free(&packet);
+        av_frame_free(&frame);
+        av_frame_free(&rgb_frame);
+        
+        if (frame_captured) {
+            std::cout << "📷 Captured frame: " << width << "x" << height << std::endl;
+        }
+        
+        return frame_captured;
     }
 
     void calibrateForLocation() {
