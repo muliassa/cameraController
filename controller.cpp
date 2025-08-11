@@ -20,7 +20,7 @@ extern "C" {
 }
 
 struct ExposureMetrics {
-    
+
     double mean_brightness;
     std::vector<float> histogram;
     double dynamic_range;
@@ -944,7 +944,7 @@ int main(int argc, char* argv[]) {
                 
                 // Get camera adjustment suggestions
 
-                ZCAMSettings suggested = controller.recommendSettings(ExposureMetrics& metrics);
+                ZCAMSettings suggested = controller.recommendSettings(metrics);
 
                 cout << "💡 Analysis: " << suggested.reasoning << std::endl;
                 cout << "   ISO: " << controller.getCurrentISO() << " → " << suggested.iso;
