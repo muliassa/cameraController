@@ -102,21 +102,14 @@ public:
         if (!testCameraConnection()) {
             throw runtime_error("Failed to connect to ZCAM at " + camera_ip);
         }
-        
-        // Initialize RTSP stream
-        // string rtsp_url = "rtsp://" + camera_ip + "/live_stream";
-        // rtsp_cap.open(rtsp_url);
-        
-        // if (!rtsp_cap.isOpened()) {
-        //     std::cout << "Warning: Failed to open RTSP stream, will try HTTP stream capture" << std::endl;
-        // }
-        
+
         // Configure stream settings for optimal monitoring
-        // configureStreamForMonitoring();
+        configureStreamForMonitoring();
         
-        cout << "ZCAM Exposure Controller initialized successfully" << std::endl;
-        cout << "Camera IP: " << camera_ip << std::endl;
-        // cout << "RTSP Stream: " << rtsp_url << std::endl;
+        std::cout << "ZCAM Exposure Controller initialized successfully" << std::endl;
+        std::cout << "Camera IP: " << camera_ip << std::endl;
+        std::cout << "Mode: Snapshot-based analysis (no video streaming)" << std::endl;
+
     }
     
     ~ZCAMExposureController() {
@@ -147,20 +140,65 @@ public:
         
         return !response.empty() && response.find("model") != std::string::npos;
     }
-    
+
     void configureStreamForMonitoring() {
-        // Configure ZCAM for live streaming
-        // Set stream1 (network stream) for monitoring
+        // ONLY configure stream1 for monitoring - NEVER touch stream0!
         std::string base_url = "http://" + camera_ip + "/ctrl/stream_setting";
         
-        // Configure stream parameters for real-time monitoring
+        // Configure ONLY stream1 (monitoring stream)
         sendHTTPRequest(base_url + "?index=stream1&enc=h264");
         sendHTTPRequest(base_url + "?index=stream1&width=1920");
         sendHTTPRequest(base_url + "?index=stream1&height=1080");
         sendHTTPRequest(base_url + "?index=stream1&fps=30");
-        sendHTTPRequest(base_url + "?index=stream1&bitrate=8000000"); // 8Mbps for good quality
+
+        cout << "\n⏳ Waiting 3 seconds for stream1 to start..." << std::endl;
+        std::this_thread::sleep_for(std::chrono::seconds(3));
         
-        std::this_thread::sleep_for(std::chrono::milliseconds(500));
+        // stream0 is LEFT ALONE - it continues recording to files
+    } 
+
+    // Method 2: HTTP snapshot from stream1 (if available)
+    bool captureStream1Snapshot() {
+        vector<std::string> stream1_urls = {
+            "http://" + camera_ip + "/stream1.jpg",
+            "http://" + camera_ip + "/ctrl/stream1/snapshot", 
+            "http://" + camera_ip + "/preview.jpg",
+            "http://" + camera_ip + "/ctrl/get?k=stream1_frame",
+        };
+        
+        for (const auto& url : stream1_urls) {
+            std::cout << "🔍 Trying stream1 snapshot: " << url << std::endl;
+            
+            FILE *fp = fopen("stream1_snapshot.jpg", "wb");
+            if (!fp) continue;
+            
+            CURL *curl_test = curl_easy_init();
+            if (!curl_test) {
+                fclose(fp);
+                continue;
+            }
+            
+            curl_easy_setopt(curl_test, CURLOPT_URL, url.c_str());
+            curl_easy_setopt(curl_test, CURLOPT_WRITEDATA, fp);
+            curl_easy_setopt(curl_test, CURLOPT_TIMEOUT, 5L);
+            
+            CURLcode res = curl_easy_perform(curl_test);
+            long response_code;
+            curl_easy_getinfo(curl_test, CURLINFO_RESPONSE_CODE, &response_code);
+            
+            curl_easy_cleanup(curl_test);
+            fclose(fp);
+            
+            struct stat st;
+            if (stat("stream1_snapshot.jpg", &st) == 0 && st.st_size > 1000) {
+                cout << "✅ SUCCESS: stream1 snapshot (" << st.st_size << " bytes)" << std::endl;
+                return true;
+            } else {
+                cout << "❌ Failed: code=" << response_code << ", size=" << (stat("stream1_snapshot.jpg", &st) == 0 ? st.st_size : 0) << std::endl;
+            }
+        }
+        
+        return false;
     }
     
     std::string sendHTTPRequest(const std::string& url) {
@@ -923,10 +961,11 @@ int main(int argc, char* argv[]) {
         // Initialize camera controller
         ZCAMExposureController controller(camera_ip);
 
-        controller.captureSnapshotToFile();
+        // Step 2: Try HTTP snapshot from stream1
+        std::cout << "\n=== Testing stream1 HTTP snapshots ===" << std::endl;
+        bool http_success = controller.captureStream1Snapshot();
 
         return 0;
-
         
         // Apply surf-specific optimizations
         controller.setSurfOptimizedSettings();
