@@ -5,7 +5,7 @@ CXX = g++
 BUILD_DIR = build
 
 # Source files - add only the needed SDK implementation files
-SOURCES = ffmpeg.cpp 
+SOURCES = controller.cpp 
 
 TARGET = $(BUILD_DIR)/cameraController
 

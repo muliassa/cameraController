@@ -1,19 +1,12 @@
-#include <opencv2/opencv.hpp>
-#include <opencv2/imgproc.hpp>
-#include <curl/curl.h>
-#include <json/json.h>
 #include <iostream>
+#include <string>
 #include <chrono>
 #include <thread>
 #include <vector>
-#include <fstream>
 #include <cmath>
 #include <iomanip>
-#include <sstream>
-#include <algorithm>
-#include <string>
-#include <sys/stat.h>
-#include <unistd.h>
+#include <curl/curl.h>
+#include <json/json.h>
 
 // FFmpeg C API headers
 extern "C" {
@@ -21,31 +14,12 @@ extern "C" {
 #include <libavcodec/avcodec.h>
 #include <libavutil/imgutils.h>
 #include <libavutil/frame.h>
+#include <libavutil/error.h>
 #include <libswscale/swscale.h>
 }
 
 using namespace std;
 using namespace cv;
-
-// ZCAM HTTP Response structure
-struct WriteMemoryStruct {
-    char *memory;
-    size_t size;
-};
-
-static size_t WriteMemoryCallback(void *contents, size_t size, size_t nmemb, struct WriteMemoryStruct *userp) {
-    size_t realsize = size * nmemb;
-    userp->memory = (char*)realloc(userp->memory, userp->size + realsize + 1);
-    if (userp->memory == NULL) {
-        return 0;
-    }
-    
-    memcpy(&(userp->memory[userp->size]), contents, realsize);
-    userp->size += realsize;
-    userp->memory[userp->size] = 0;
-    
-    return realsize;
-}
 
 struct ExposureMetrics {
     double mean_brightness;
@@ -59,47 +33,38 @@ struct ExposureMetrics {
 
 struct ZCAMSettings {
     int iso;
-    double exposure_compensation;  // EV value
-    std::string aperture;          // f-stop as string (e.g., "2.8")
-    int shutter_angle;             // Shutter angle in degrees
+    double exposure_compensation;
+    std::string aperture;
+    int shutter_angle;
     std::string reasoning;
 };
 
-struct LogEntry {
-    std::string timestamp;
-    ExposureMetrics metrics;
-    ZCAMSettings settings;
-    double sun_factor;
-};
-
-class ZCAMExposureController {
-
+class ZCAMFFmpegController {
 private:
-    string camera_ip;
-    string rtsp_url;
-    // cv::VideoCapture rtsp_cap;
+    std::string camera_ip;
+    std::string rtsp_url;
     CURL *curl;
+    
+    // FFmpeg components
+    AVFormatContext *format_ctx = nullptr;
+    AVCodecContext *codec_ctx = nullptr;
+    const AVCodec *codec = nullptr;  // Use const AVCodec* for newer FFmpeg versions
+    SwsContext *sws_ctx = nullptr;
+    int video_stream_index = -1;
+    
+    // Current camera settings
+    int current_iso = 500;
+    double current_ev = 0.0;
+    std::string current_aperture = "5.6";
+    int current_shutter_angle = 180;
     
     double target_brightness = 128.0;
     double brightness_tolerance = 15.0;
-    
-    // ZCAM E2 parameter ranges
-    vector<int> iso_values = {100, 125, 160, 200, 250, 320, 400, 500, 640, 800, 1000, 1250, 1600, 2000, 2500, 3200, 4000, 5000, 6400, 8000, 10000, 12800};
-    vector<int> native_iso_values = {500, 2500}; // Dual native ISO for E2
-    pair<double, double> ev_range = {-3.0, 3.0};
-    vector<string> aperture_values = {"1.4", "1.6", "1.8", "2.0", "2.2", "2.5", "2.8", "3.2", "3.5", "4.0", "4.5", "5.0", "5.6", "6.3", "7.1", "8.0", "9.0", "10", "11", "13", "14", "16"};
-    
-    // Current settings
-    int current_iso = 500;
-    double current_ev = 0.0;
-    string current_aperture = "5.6";
-    int current_shutter_angle = 180;
-    
-    // History for learning
-    std::vector<LogEntry> exposure_history;
 
 public:
-    ZCAMExposureController(const string& ip = "192.168.150.201") : camera_ip(ip) {
+    ZCAMFFmpegController(const std::string& ip) : camera_ip(ip) {
+        rtsp_url = "rtsp://" + camera_ip + "/live_stream";
+        
         // Initialize CURL
         curl_global_init(CURL_GLOBAL_DEFAULT);
         curl = curl_easy_init();
@@ -108,848 +73,26 @@ public:
             throw std::runtime_error("Failed to initialize CURL");
         }
         
-        // Test camera connection
-        if (!testCameraConnection()) {
-            throw runtime_error("Failed to connect to ZCAM at " + camera_ip);
-        }
-
-        // Configure stream settings for optimal monitoring
-        // configureStreamForMonitoring();
-        rtsp_url = "rtsp://" + camera_ip + "/live_stream";
-
-        initializeStream();
+        // Initialize FFmpeg (for newer versions)
+        #if LIBAVFORMAT_VERSION_INT < AV_VERSION_INT(58, 9, 100)
+        av_register_all();  // Only needed for older FFmpeg versions
+        #endif
+        avformat_network_init();
         
-        std::cout << "ZCAM Exposure Controller initialized successfully" << std::endl;
-        std::cout << "Camera IP: " << camera_ip << std::endl;
-        std::cout << "Mode: Snapshot-based analysis (no video streaming)" << std::endl;
-
+        std::cout << "✅ ZCAM FFmpeg Controller initialized" << std::endl;
+        std::cout << "   Camera IP: " << camera_ip << std::endl;
+        std::cout << "   RTSP URL: " << rtsp_url << std::endl;
     }
     
-    ~ZCAMExposureController() {
-        // if (rtsp_cap.isOpened()) {
-        //     rtsp_cap.release();
-        // }
-        // cv::destroyAllWindows();
+    ~ZCAMFFmpegController() {
+        cleanup();
         
         if (curl) {
             curl_easy_cleanup(curl);
         }
         curl_global_cleanup();
         
-        saveFinalLog();
-    }
-
-    bool testCameraConnection() {
-        std::string info_url = "http://" + camera_ip + "/info";
-        std::cout << "🔍 Testing camera connection..." << std::endl;
-        std::cout << "   URL: " << info_url << std::endl;
-        
-        std::string response = sendHTTPRequest(info_url);
-        
-        std::cout << "📊 Response length: " << response.length() << " chars" << std::endl;
-        if (response.length() > 0) {
-            std::cout << "📊 Response preview: " << response.substr(0, std::min(200, (int)response.length())) << std::endl;
-        }
-        
-        return !response.empty() && response.find("model") != std::string::npos;
-    }
-
-    void configureStreamForMonitoring() {
-        // ONLY configure stream1 for monitoring - NEVER touch stream0!
-        std::string base_url = "http://" + camera_ip + "/ctrl/stream_setting";
-        
-        // Configure ONLY stream1 (monitoring stream)
-        sendHTTPRequest(base_url + "?index=stream1&enc=h264");
-        sendHTTPRequest(base_url + "?index=stream1&width=1920");
-        sendHTTPRequest(base_url + "?index=stream1&height=1080");
-        sendHTTPRequest(base_url + "?index=stream1&fps=30");
-
-        cout << "\n⏳ Waiting 3 seconds for stream1 to start..." << std::endl;
-        std::this_thread::sleep_for(std::chrono::seconds(3));
-        
-        // stream0 is LEFT ALONE - it continues recording to files
-    } 
-
-    // Method 2: HTTP snapshot from stream1 (if available)
-    bool captureStream1Snapshot() {
-        vector<std::string> stream1_urls = {
-            "http://" + camera_ip + "/stream1.jpg",
-            "http://" + camera_ip + "/ctrl/stream1/snapshot", 
-            "http://" + camera_ip + "/preview.jpg",
-            "http://" + camera_ip + "/ctrl/get?k=stream1_frame",
-        };
-        
-        for (const auto& url : stream1_urls) {
-            std::cout << "🔍 Trying stream1 snapshot: " << url << std::endl;
-            
-            FILE *fp = fopen("stream1_snapshot.jpg", "wb");
-            if (!fp) continue;
-            
-            CURL *curl_test = curl_easy_init();
-            if (!curl_test) {
-                fclose(fp);
-                continue;
-            }
-            
-            curl_easy_setopt(curl_test, CURLOPT_URL, url.c_str());
-            curl_easy_setopt(curl_test, CURLOPT_WRITEDATA, fp);
-            curl_easy_setopt(curl_test, CURLOPT_TIMEOUT, 5L);
-            
-            CURLcode res = curl_easy_perform(curl_test);
-            long response_code;
-            curl_easy_getinfo(curl_test, CURLINFO_RESPONSE_CODE, &response_code);
-            
-            curl_easy_cleanup(curl_test);
-            fclose(fp);
-            
-            struct stat st;
-            if (stat("stream1_snapshot.jpg", &st) == 0 && st.st_size > 1000) {
-                cout << "✅ SUCCESS: stream1 snapshot (" << st.st_size << " bytes)" << std::endl;
-                return true;
-            } else {
-                cout << "❌ Failed: code=" << response_code << ", size=" << (stat("stream1_snapshot.jpg", &st) == 0 ? st.st_size : 0) << std::endl;
-            }
-        }
-        
-        return false;
-    }
-    
-    std::string sendHTTPRequest(const std::string& url) {
-        if (!curl) return "";
-        
-        struct WriteMemoryStruct chunk;
-        chunk.memory = (char*)malloc(1);
-        chunk.size = 0;
-        
-        curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
-        curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteMemoryCallback);
-        curl_easy_setopt(curl, CURLOPT_WRITEDATA, (void *)&chunk);
-        curl_easy_setopt(curl, CURLOPT_TIMEOUT, 5L);
-        
-        CURLcode res = curl_easy_perform(curl);
-        
-        std::string response;
-        if (res == CURLE_OK && chunk.memory) {
-            response = std::string(chunk.memory);
-        }
-        
-        if (chunk.memory) {
-            free(chunk.memory);
-        }
-        
-        return response;
-    }
-
-    bool captureSnapshotToFile() {
-        std::string snapshot_url = "http://" + camera_ip + "/snapshot";
-        std::string filename = "temp_snapshot.jpg";
-        
-        std::cout << "🔍 Trying to capture snapshot..." << std::endl;
-        std::cout << "   URL: " << snapshot_url << std::endl;
-        
-        FILE *fp = fopen(filename.c_str(), "wb");
-        if (!fp) {
-            std::cout << "❌ Failed to create file: " << filename << std::endl;
-            return false;
-        }
-        
-        CURL *curl = curl_easy_init();
-        if (!curl) {
-            std::cout << "❌ Failed to initialize CURL" << std::endl;
-            fclose(fp);
-            return false;
-        }
-        
-        curl_easy_setopt(curl, CURLOPT_URL, snapshot_url.c_str());
-        curl_easy_setopt(curl, CURLOPT_WRITEDATA, fp);
-        curl_easy_setopt(curl, CURLOPT_TIMEOUT, 10L);
-        curl_easy_setopt(curl, CURLOPT_VERBOSE, 1L);  // Add verbose output
-        
-        std::cout << "📡 Sending request..." << std::endl;
-        CURLcode res = curl_easy_perform(curl);
-        
-        // Get response info
-        long response_code;
-        curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &response_code);
-        
-        curl_easy_cleanup(curl);
-        fclose(fp);
-        
-        std::cout << "📊 Response code: " << response_code << std::endl;
-        std::cout << "📊 CURL result: " << curl_easy_strerror(res) << std::endl;
-        
-        // Check file size
-        struct stat st;
-        if (stat(filename.c_str(), &st) == 0) {
-            std::cout << "📊 File size: " << st.st_size << " bytes" << std::endl;
-        }
-        
-        return (res == CURLE_OK && response_code == 200);
-    }
-
-    // Just download and save, analyze file externally
-    // bool captureSnapshotToFile() {
-    //     std::string snapshot_url = "http://" + camera_ip + "/ctrl/snapshot";
-    //     std::string filename = "temp_snapshot.jpg";
-        
-    //     FILE *fp = fopen(filename.c_str(), "wb");
-    //     if (!fp) return false;
-        
-    //     CURL *curl = curl_easy_init();
-    //     curl_easy_setopt(curl, CURLOPT_URL, snapshot_url.c_str());
-    //     curl_easy_setopt(curl, CURLOPT_WRITEDATA, fp);
-        
-    //     CURLcode res = curl_easy_perform(curl);
-    //     curl_easy_cleanup(curl);
-    //     fclose(fp);
-        
-    //     return (res == CURLE_OK);
-    // }
-
-    ExposureMetrics analyzeExposure(const cv::Mat& frame) {
-        ExposureMetrics metrics;
-        
-        if (frame.empty()) {
-            return metrics;
-        }
-        
-        // Convert to grayscale
-        cv::Mat gray;
-        cv::cvtColor(frame, gray, cv::COLOR_BGR2GRAY);
-        
-        // Calculate mean brightness
-        cv::Scalar mean_val = cv::mean(gray);
-        metrics.mean_brightness = mean_val[0];
-        
-        // Calculate histogram
-        std::vector<cv::Mat> hist;
-        int histSize = 256;
-        float range[] = {0, 256};
-        const float* histRange = {range};
-        cv::Mat hist_mat;
-        cv::calcHist(&gray, 1, 0, cv::Mat(), hist_mat, 1, &histSize, &histRange);
-        
-        // Convert histogram to vector
-        metrics.histogram.resize(256);
-        for (int i = 0; i < 256; i++) {
-            metrics.histogram[i] = hist_mat.at<float>(i);
-        }
-        
-        // Calculate dynamic range
-        double min_val, max_val;
-        cv::minMaxLoc(gray, &min_val, &max_val);
-        metrics.dynamic_range = max_val - min_val;
-        
-        // Calculate contrast (standard deviation)
-        cv::Scalar mean, stddev;
-        cv::meanStdDev(gray, mean, stddev);
-        metrics.contrast = stddev[0];
-        
-        // Calculate clipped pixels
-        cv::Mat highlight_mask = gray >= 250;
-        cv::Mat shadow_mask = gray <= 5;
-        metrics.clipped_highlights = (cv::sum(highlight_mask)[0] / 255.0) / gray.total() * 100.0;
-        metrics.clipped_shadows = (cv::sum(shadow_mask)[0] / 255.0) / gray.total() * 100.0;
-        
-        // Calculate exposure score
-        metrics.exposure_score = calculateExposureScore(metrics);
-        
-        return metrics;
-    }
-    
-    double calculateExposureScore(const ExposureMetrics& metrics) {
-        double score = 100.0;
-        
-        // Penalize brightness deviation
-        double brightness_error = std::abs(metrics.mean_brightness - target_brightness);
-        score -= std::min(brightness_error * 2.0, 50.0);
-        
-        // Penalize clipped pixels
-        score -= metrics.clipped_highlights * 2.0;
-        score -= metrics.clipped_shadows * 2.0;
-        
-        // Reward good contrast
-        if (metrics.contrast < 30.0) {
-            score -= (30.0 - metrics.contrast);
-        } else if (metrics.contrast > 80.0) {
-            score -= (metrics.contrast - 80.0) * 0.5;
-        }
-        
-        // Reward good dynamic range
-        if (metrics.dynamic_range < 200.0) {
-            score -= (200.0 - metrics.dynamic_range) * 0.2;
-        }
-        
-        return std::max(0.0, std::min(100.0, score));
-    }
-    
-    double getSunAngleFactor() {
-        auto now = std::chrono::system_clock::now();
-        auto time_t = std::chrono::system_clock::to_time_t(now);
-        auto tm = *std::localtime(&time_t);
-        
-        double hour = tm.tm_hour + tm.tm_min / 60.0;
-        
-        if (hour >= 6.0 && hour <= 22.0) { // 6am to 10pm surf recording
-            double solar_noon = 13.0; // Adjust for your timezone/location
-            double hour_angle = std::abs(hour - solar_noon);
-            double sun_elevation = 90.0 - (hour_angle * 12.0); // Adjusted for longer day
-            return std::max(0.0, sun_elevation / 90.0);
-        } else {
-            return 0.1; // Very low light
-        }
-    }
-    
-    int findClosestISO(int target_iso) {
-        auto it = std::lower_bound(iso_values.begin(), iso_values.end(), target_iso);
-        if (it == iso_values.end()) return iso_values.back();
-        if (it == iso_values.begin()) return iso_values.front();
-        
-        int upper = *it;
-        int lower = *(--it);
-        
-        return (target_iso - lower < upper - target_iso) ? lower : upper;
-    }
-    
-    string findClosestAperture(double target_f) {
-        double min_diff = std::numeric_limits<double>::max();
-        std::string closest = aperture_values[0];
-        
-        for (const auto& f_str : aperture_values) {
-            double f_val = std::stod(f_str);
-            double diff = std::abs(f_val - target_f);
-            if (diff < min_diff) {
-                min_diff = diff;
-                closest = f_str;
-            }
-        }
-        
-        return closest;
-    }
-    
-    ZCAMSettings suggestCameraSettings(const ExposureMetrics& metrics) {
-        ZCAMSettings settings;
-        double brightness_error = metrics.mean_brightness - target_brightness;
-        double sun_factor = getSunAngleFactor();
-        
-        // Start with current settings
-        settings.iso = current_iso;
-        settings.exposure_compensation = current_ev;
-        settings.aperture = current_aperture;
-        settings.shutter_angle = current_shutter_angle;
-        
-        // ISO adjustment logic
-        if (metrics.mean_brightness < target_brightness - brightness_tolerance) {
-            // Too dark - increase ISO (prefer native ISO values)
-            int target_iso = static_cast<int>(current_iso * 1.6);
-            
-            // Prefer native ISO values when possible
-            if (target_iso >= 2500) {
-                settings.iso = 2500; // High native ISO
-            } else if (target_iso >= 500) {
-                // Choose between native ISOs or find closest
-                if (std::abs(target_iso - 500) < std::abs(target_iso - 2500)) {
-                    settings.iso = 500;
-                } else {
-                    settings.iso = findClosestISO(target_iso);
-                }
-            } else {
-                settings.iso = findClosestISO(target_iso);
-            }
-            
-        } else if (metrics.mean_brightness > target_brightness + brightness_tolerance) {
-            // Too bright - decrease ISO
-            int target_iso = static_cast<int>(current_iso / 1.4);
-            
-            if (target_iso <= 500) {
-                settings.iso = 500; // Low native ISO
-            } else {
-                settings.iso = findClosestISO(target_iso);
-            }
-        }
-        
-        // EV compensation for fine tuning
-        if (metrics.clipped_highlights > 5.0) {
-            settings.exposure_compensation = std::max(current_ev - 0.5, ev_range.first);
-        } else if (metrics.clipped_shadows > 10.0 && metrics.mean_brightness < 100.0) {
-            settings.exposure_compensation = std::min(current_ev + 0.3, ev_range.second);
-        }
-        
-        // Aperture adjustment based on lighting and depth of field needs
-        double current_f = std::stod(current_aperture);
-        if (sun_factor > 0.8) {
-            // Bright daylight - smaller aperture for sharpness and surf detail
-            settings.aperture = findClosestAperture(std::min(8.0, current_f + 1.0));
-        } else if (sun_factor < 0.3) {
-            // Low light - wider aperture
-            settings.aperture = findClosestAperture(std::max(2.8, current_f - 1.0));
-        }
-        
-        // Shutter angle for surf motion (180° is standard for natural motion)
-        if (sun_factor > 0.6) {
-            settings.shutter_angle = 180; // Standard for good motion blur
-        } else {
-            settings.shutter_angle = 270; // Wider for more light in low conditions
-        }
-        
-        settings.reasoning = getAdjustmentReasoning(brightness_error, metrics, sun_factor);
-        
-        return settings;
-    }
-    
-    string getAdjustmentReasoning(double brightness_error, const ExposureMetrics& metrics, double sun_factor) {
-        std::vector<std::string> reasons;
-        
-        if (std::abs(brightness_error) > brightness_tolerance) {
-            std::ostringstream oss;
-            if (brightness_error < 0) {
-                oss << "Image too dark (brightness: " << std::fixed << std::setprecision(1) << metrics.mean_brightness << ")";
-            } else {
-                oss << "Image too bright (brightness: " << std::fixed << std::setprecision(1) << metrics.mean_brightness << ")";
-            }
-            reasons.push_back(oss.str());
-        }
-        
-        if (metrics.clipped_highlights > 5.0) {
-            std::ostringstream oss;
-            oss << "Highlights clipped (" << std::fixed << std::setprecision(1) << metrics.clipped_highlights << "%)";
-            reasons.push_back(oss.str());
-        }
-        
-        if (metrics.clipped_shadows > 10.0) {
-            ostringstream oss;
-            oss << "Shadows clipped (" << std::fixed << std::setprecision(1) << metrics.clipped_shadows << "%)";
-            reasons.push_back(oss.str());
-        }
-        
-        if (sun_factor > 0.8) {
-            reasons.push_back("Bright daylight surfing conditions");
-        } else if (sun_factor < 0.3) {
-            reasons.push_back("Low light dawn/dusk surfing");
-        }
-        
-        if (reasons.empty()) {
-            return "Fine-tuning for optimal surf recording";
-        }
-        
-        std::string result = reasons[0];
-        for (size_t i = 1; i < reasons.size(); i++) {
-            result += "; " + reasons[i];
-        }
-        return result;
-    }
-    
-    bool updateZCAMSettings(const ZCAMSettings& new_settings) {
-        cout << "Updating ZCAM settings:" << std::endl;
-        cout << "  ISO: " << current_iso << " → " << new_settings.iso << std::endl;
-        cout << "  EV: " << std::fixed << std::setprecision(1) << current_ev 
-                  << " → " << new_settings.exposure_compensation << std::endl;
-        std::cout << "  Aperture: f/" << current_aperture << " → f/" << new_settings.aperture << std::endl;
-        std::cout << "  Shutter Angle: " << current_shutter_angle << "° → " << new_settings.shutter_angle << "°" << std::endl;
-        std::cout << "  Reason: " << new_settings.reasoning << std::endl;
-        
-        bool success = true;
-        std::string base_url = "http://" + camera_ip + "/ctrl/set";
-        
-        // Update ISO
-        if (new_settings.iso != current_iso) {
-            std::string iso_url = base_url + "?iso=" + std::to_string(new_settings.iso);
-            std::string response = sendHTTPRequest(iso_url);
-            if (response.find("\"code\":0") != std::string::npos) {
-                current_iso = new_settings.iso;
-            } else {
-                success = false;
-                std::cout << "Failed to set ISO" << std::endl;
-            }
-        }
-        
-        // Update EV compensation
-        if (std::abs(new_settings.exposure_compensation - current_ev) > 0.1) {
-            // Convert EV to camera's EV format (usually in 1/3 stops)
-            int ev_thirds = static_cast<int>(new_settings.exposure_compensation * 3);
-            std::string ev_url = base_url + "?ev=" + std::to_string(ev_thirds);
-            std::string response = sendHTTPRequest(ev_url);
-            if (response.find("\"code\":0") != std::string::npos) {
-                current_ev = new_settings.exposure_compensation;
-            } else {
-                success = false;
-                std::cout << "Failed to set EV compensation" << std::endl;
-            }
-        }
-        
-        // Update Aperture (if using electronic lens)
-        if (new_settings.aperture != current_aperture) {
-            // Convert aperture string to camera format
-            std::string aperture_url = base_url + "?aperture=" + new_settings.aperture;
-            std::string response = sendHTTPRequest(aperture_url);
-            if (response.find("\"code\":0") != std::string::npos) {
-                current_aperture = new_settings.aperture;
-            } else {
-                std::cout << "Note: Aperture control may require electronic lens" << std::endl;
-            }
-        }
-        
-        // Update Shutter Angle
-        if (new_settings.shutter_angle != current_shutter_angle) {
-            std::string shutter_url = base_url + "?shutter_angle=" + std::to_string(new_settings.shutter_angle);
-            std::string response = sendHTTPRequest(shutter_url);
-            if (response.find("\"code\":0") != std::string::npos) {
-                current_shutter_angle = new_settings.shutter_angle;
-            } else {
-                success = false;
-                std::cout << "Failed to set shutter angle" << std::endl;
-            }
-        }
-        
-        return success;
-    }
-    
-    std::string getCurrentTimestamp() {
-        auto now = std::chrono::system_clock::now();
-        auto time_t = std::chrono::system_clock::to_time_t(now);
-        auto tm = *std::localtime(&time_t);
-        
-        std::ostringstream oss;
-        oss << std::put_time(&tm, "%Y-%m-%d %H:%M:%S");
-        return oss.str();
-    }
-    
-    void logExposureData(const ExposureMetrics& metrics, const ZCAMSettings& settings) {
-        LogEntry entry;
-        entry.timestamp = getCurrentTimestamp();
-        entry.metrics = metrics;
-        entry.settings = settings;
-        entry.sun_factor = getSunAngleFactor();
-        
-        exposure_history.push_back(entry);
-        
-        // Save periodically
-        if (exposure_history.size() % 10 == 0) {
-            saveLogToFile();
-        }
-    }
-    
-    void saveLogToFile() {
-        std::ofstream file("zcam_exposure_log.json");
-        if (!file.is_open()) return;
-        
-        file << "[\n";
-        for (size_t i = 0; i < exposure_history.size(); i++) {
-            const auto& entry = exposure_history[i];
-            file << "  {\n";
-            file << "    \"timestamp\": \"" << entry.timestamp << "\",\n";
-            file << "    \"metrics\": {\n";
-            file << "      \"mean_brightness\": " << entry.metrics.mean_brightness << ",\n";
-            file << "      \"exposure_score\": " << entry.metrics.exposure_score << ",\n";
-            file << "      \"clipped_highlights\": " << entry.metrics.clipped_highlights << ",\n";
-            file << "      \"clipped_shadows\": " << entry.metrics.clipped_shadows << ",\n";
-            file << "      \"contrast\": " << entry.metrics.contrast << ",\n";
-            file << "      \"dynamic_range\": " << entry.metrics.dynamic_range << "\n";
-            file << "    },\n";
-            file << "    \"settings\": {\n";
-            file << "      \"iso\": " << entry.settings.iso << ",\n";
-            file << "      \"exposure_compensation\": " << entry.settings.exposure_compensation << ",\n";
-            file << "      \"aperture\": \"" << entry.settings.aperture << "\",\n";
-            file << "      \"shutter_angle\": " << entry.settings.shutter_angle << ",\n";
-            file << "      \"reasoning\": \"" << entry.settings.reasoning << "\"\n";
-            file << "    },\n";
-            file << "    \"sun_factor\": " << entry.sun_factor << "\n";
-            file << "  }";
-            if (i < exposure_history.size() - 1) file << ",";
-            file << "\n";
-        }
-        file << "]\n";
-        file.close();
-    }
-    
-    void saveFinalLog() {
-        if (!exposure_history.empty()) {
-            saveLogToFile();
-        }
-    }
-    
-    cv::Mat drawHistogram(const std::vector<float>& hist) {
-        cv::Mat hist_img = cv::Mat::zeros(100, 250, CV_8UC3);
-        
-        // Find max value for normalization
-        float max_val = *std::max_element(hist.begin(), hist.end());
-        if (max_val == 0) return hist_img;
-        
-        for (int i = 0; i < 256; i++) {
-            int x = i * 250 / 256;
-            int height = static_cast<int>(hist[i] / max_val * 90);
-            cv::line(hist_img, cv::Point(x, 100), cv::Point(x, 100 - height), 
-                    cv::Scalar(255, 255, 255), 1);
-        }
-        
-        return hist_img;
-    }
-    
-    void displayFrameWithInfo(const cv::Mat& frame, const ExposureMetrics& metrics) {
-        cv::Mat display_frame = frame.clone();
-        
-        // Add ZCAM exposure info overlay
-        vector<string> info_text = {
-            string("ZCAM E2 Surf Monitor"),
-            string("Brightness: ") + to_string(static_cast<int>(metrics.mean_brightness)),
-            string("Score: ") + to_string(static_cast<int>(metrics.exposure_score)) + "/100",
-            string("ISO: ") + to_string(current_iso) + (current_iso == 500 || current_iso == 2500 ? "*" : ""),
-            string("EV: ") + String(current_ev >= 0 ? "+" : "") + to_string(current_ev).substr(0, 4),
-            string("f/") + current_aperture,
-            string("Shutter: ") + to_string(current_shutter_angle) + String("°")
-        };
-        
-        for (size_t i = 0; i < info_text.size(); i++) {
-            cv::Scalar color = (i == 0) ? cv::Scalar(0, 255, 255) : cv::Scalar(0, 255, 0); // Yellow for title
-            cv::putText(display_frame, info_text[i], 
-                       cv::Point(10, 25 + i * 20),
-                       cv::FONT_HERSHEY_SIMPLEX, 0.6, color, 2);
-        }
-        
-        // Add histogram
-        cv::Mat hist_display = drawHistogram(metrics.histogram);
-        cv::Rect roi(display_frame.cols - 260, 10, 250, 100);
-        if (roi.x >= 0 && roi.y >= 0 && 
-            roi.x + roi.width <= display_frame.cols && 
-            roi.y + roi.height <= display_frame.rows) {
-            hist_display.copyTo(display_frame(roi));
-        }
-        
-        // Add recording indicator
-        auto now = chrono::system_clock::now();
-        auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()) % 1000;
-        if (ms.count() < 500) { // Blinking red dot
-            cv::circle(display_frame, cv::Point(display_frame.cols - 30, 30), 8, cv::Scalar(0, 0, 255), -1);
-            cv::putText(display_frame, "REC", cv::Point(display_frame.cols - 60, 40), 
-                       cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 0, 255), 2);
-        }
-        
-        // cv::imshow("ZCAM Surf Auto Exposure", display_frame);
-    }
-    
-    void runAutoAdjustment(int interval_seconds = 30) {
-        std::cout << "\n=== ZCAM Surf Auto Exposure Controller ===" << std::endl;
-        std::cout << "Camera IP: " << camera_ip << std::endl;
-        std::cout << "Recording Hours: 6:00 AM - 10:00 PM" << std::endl;
-        std::cout << "Adjustment Interval: " << interval_seconds << " seconds" << std::endl;
-        std::cout << "\nControls:" << std::endl;
-        std::cout << "  'q' - Quit" << std::endl;
-        std::cout << "  's' - Save snapshot" << std::endl;
-        std::cout << "  'r' - Start/Stop recording" << std::endl;
-        std::cout << "  'i' - Get camera info" << std::endl;
-        std::cout << "==========================================\n" << std::endl;
-        
-        while (true) {
-            Mat frame = captureFrame();
-            if (frame.empty()) {
-                std::cout << "No frame available, checking stream..." << std::endl;
-                std::this_thread::sleep_for(std::chrono::seconds(5));
-                continue;
-            }
-            
-            // Analyze exposure
-            ExposureMetrics metrics = analyzeExposure(frame);
-            
-            auto now = std::chrono::system_clock::now();
-            auto time_t = std::chrono::system_clock::to_time_t(now);
-            auto tm = *std::localtime(&time_t);
-            
-            std::cout << "\n--- ZCAM Exposure Analysis (" 
-                     << std::put_time(&tm, "%H:%M:%S") << ") ---" << std::endl;
-            std::cout << std::fixed << std::setprecision(1);
-            std::cout << "Brightness: " << metrics.mean_brightness 
-                     << " (target: " << target_brightness << ")" << std::endl;
-            std::cout << "Exposure Score: " << metrics.exposure_score << "/100" << std::endl;
-            std::cout << "Clipped Highlights: " << metrics.clipped_highlights << "%" << std::endl;
-            std::cout << "Clipped Shadows: " << metrics.clipped_shadows << "%" << std::endl;
-            std::cout << "Contrast: " << metrics.contrast << std::endl;
-            std::cout << "Sun Factor: " << getSunAngleFactor() << std::endl;
-            
-            // Check if adjustment needed
-            bool needs_adjustment = 
-                std::abs(metrics.mean_brightness - target_brightness) > brightness_tolerance ||
-                metrics.clipped_highlights > 5.0 ||
-                metrics.clipped_shadows > 10.0;
-            
-            if (needs_adjustment) {
-                ZCAMSettings suggested = suggestCameraSettings(metrics);
-                
-                // Only update if settings actually changed
-                if (suggested.iso != current_iso || 
-                    std::abs(suggested.exposure_compensation - current_ev) > 0.1 ||
-                    suggested.aperture != current_aperture ||
-                    suggested.shutter_angle != current_shutter_angle) {
-                    
-                    if (updateZCAMSettings(suggested)) {
-                        logExposureData(metrics, suggested);
-                    } else {
-                        std::cout << "Warning: Some settings failed to update" << std::endl;
-                    }
-                }
-            } else {
-                std::cout << "Exposure is optimal for surf recording" << std::endl;
-            }
-            
-            // Display frame with info
-            displayFrameWithInfo(frame, metrics);
-            
-            // Check for user input
-            // char key = cv::waitKey(1000) & 0xFF;
-            char key = 0;
-            if (key == 'q') {
-                break;
-            } else if (key == 's') {
-                // Save snapshot
-                auto timestamp = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
-                auto tm_stamp = *std::localtime(&timestamp);
-                std::ostringstream filename;
-                // filename << "zcam_surf_snapshot_" << std::put_time(&tm_stamp, "%Y%m%d_%H%M%S") << ".jpg";
-                // cv::imwrite(filename.str(), frame);
-                std::cout << "Snapshot saved: " << filename.str() << std::endl;
-            } else if (key == 'r') {
-                // Toggle recording
-                toggleRecording();
-            } else if (key == 'i') {
-                // Get camera info
-                showCameraInfo();
-            }
-            
-            std::this_thread::sleep_for(std::chrono::seconds(interval_seconds));
-        }
-    }
-    
-    void toggleRecording() {
-        // Get current recording status
-        std::string status_url = "http://" + camera_ip + "/info";
-        std::string response = sendHTTPRequest(status_url);
-        
-        bool is_recording = response.find("\"recording\":true") != std::string::npos;
-        
-        std::string action_url = "http://" + camera_ip + "/ctrl/";
-        if (is_recording) {
-            action_url += "rec?action=stop";
-            std::cout << "Stopping recording..." << std::endl;
-        } else {
-            action_url += "rec?action=start";
-            std::cout << "Starting recording..." << std::endl;
-        }
-        
-        std::string result = sendHTTPRequest(action_url);
-        if (result.find("\"code\":0") != std::string::npos) {
-            std::cout << "Recording " << (is_recording ? "stopped" : "started") << " successfully" << std::endl;
-        } else {
-            std::cout << "Failed to toggle recording" << std::endl;
-        }
-    }
-    
-    void showCameraInfo() {
-        std::string info_url = "http://" + camera_ip + "/info";
-        std::string response = sendHTTPRequest(info_url);
-        
-        std::cout << "\n=== ZCAM Camera Info ===" << std::endl;
-        
-        // Parse basic info (simplified JSON parsing)
-        if (response.find("\"model\"") != std::string::npos) {
-            size_t model_start = response.find("\"model\":\"") + 9;
-            size_t model_end = response.find("\"", model_start);
-            if (model_end != std::string::npos) {
-                std::string model = response.substr(model_start, model_end - model_start);
-                std::cout << "Model: " << model << std::endl;
-            }
-        }
-        
-        if (response.find("\"battery\"") != std::string::npos) {
-            size_t battery_start = response.find("\"battery\":") + 10;
-            size_t battery_end = response.find(",", battery_start);
-            if (battery_end != std::string::npos) {
-                std::string battery = response.substr(battery_start, battery_end - battery_start);
-                std::cout << "Battery: " << battery << "%" << std::endl;
-            }
-        }
-        
-        bool is_recording = response.find("\"recording\":true") != std::string::npos;
-        std::cout << "Recording: " << (is_recording ? "ON" : "OFF") << std::endl;
-        
-        std::cout << "Current Settings:" << std::endl;
-        std::cout << "  ISO: " << current_iso << std::endl;
-        std::cout << "  EV: " << current_ev << std::endl;
-        std::cout << "  Aperture: f/" << current_aperture << std::endl;
-        std::cout << "  Shutter Angle: " << current_shutter_angle << "°" << std::endl;
-        std::cout << "========================\n" << std::endl;
-    }
-    
-    // Additional utility methods for surf-specific optimizations
-    void setSurfOptimizedSettings() {
-        std::cout << "Applying surf-optimized settings..." << std::endl;
-        
-        // Set color profile for outdoor/surf conditions
-        sendHTTPRequest("http://" + camera_ip + "/ctrl/set?color_profile=natural");
-        
-        // Set white balance for daylight
-        sendHTTPRequest("http://" + camera_ip + "/ctrl/set?wb=daylight");
-        
-        // Enable image stabilization if available
-        sendHTTPRequest("http://" + camera_ip + "/ctrl/set?stabilization=on");
-        
-        // Set recording format for high quality
-        sendHTTPRequest("http://" + camera_ip + "/ctrl/set?format=4k_30p");
-        
-        // Set codec for good compression vs quality balance
-        sendHTTPRequest("http://" + camera_ip + "/ctrl/set?codec=h265");
-        
-        std::cout << "Surf optimization complete" << std::endl;
-    }
-
-    // Capture from the working RTSP live_stream
-    cv::Mat captureFrame() {
-        // static cv::VideoCapture rtsp_cap;
-        static bool initialized = false;
-        
-        if (!initialized) {
-            rtsp_url = "rtsp://" + camera_ip + "/live_stream";
-            // std::cout << "📺 Connecting to ZCAM live stream: " << rtsp_url << std::endl;
-            
-            // Configure for optimal RTSP performance
-            // rtsp_cap.set(cv::CAP_PROP_BUFFERSIZE, 1);    // Minimize latency
-            // rtsp_cap.set(cv::CAP_PROP_FPS, 30);          // Match camera fps
-            
-            // bool opened = rtsp_cap.open(rtsp_url, cv::CAP_FFMPEG);
-            
-            if (opened) {
-                std::cout << "✅ RTSP live_stream connected successfully" << std::endl;
-                initialized = true;
-                
-                // Let stream stabilize
-                std::this_thread::sleep_for(std::chrono::seconds(2));
-            } else {
-                std::cout << "❌ Failed to connect to RTSP live_stream" << std::endl;
-                return cv::Mat();
-            }
-        }
-        
-        // if (!rtsp_cap.isOpened()) {
-        //     std::cout << "❌ RTSP stream not available" << std::endl;
-        //     return cv::Mat();
-        // }
-        
-        cv::Mat frame;
-        // bool success = rtsp_cap.read(frame);
-        
-        if (success && !frame.empty()) {
-            // Only print occasionally to avoid spam
-            static int frame_count = 0;
-            if (frame_count % 30 == 0) {  // Every 30 frames (~1 second)
-                std::cout << "📷 Frame " << frame_count << ": " << frame.cols << "x" << frame.rows << std::endl;
-            }
-            frame_count++;
-            
-            return frame;
-        } else {
-            std::cout << "⚠️ Failed to read frame, attempting reconnect..." << std::endl;
-            // rtsp_cap.release();
-            initialized = false;
-            return cv::Mat();
-        }
+        avformat_network_deinit();
     }
     
     bool initializeStream() {
@@ -962,10 +105,10 @@ public:
             return false;
         }
         
-        // Set RTSP options - CRITICAL: TCP transport for ZCAM
+        // Set RTSP CLIENT options - CRITICAL: TCP transport for ZCAM
         AVDictionary *options = nullptr;
         av_dict_set(&options, "rtsp_transport", "tcp", 0);     // ZCAM requires TCP!
-        av_dict_set(&options, "timeout", "10000000", 0);       // 10 seconds
+        av_dict_set(&options, "stimeout", "10000000", 0);      // Connection timeout (10 sec)
         av_dict_set(&options, "max_delay", "5000000", 0);      // 5 seconds max delay
         av_dict_set(&options, "buffer_size", "1024000", 0);    // 1MB buffer
         av_dict_set(&options, "rtsp_flags", "prefer_tcp", 0);  // Force TCP
@@ -982,7 +125,7 @@ public:
         
         if (ret < 0) {
             char errbuf[AV_ERROR_MAX_STRING_SIZE];
-            av_strerror(ret, errbuf, AV_ERROR_MAX_STRING_SIZE);
+            av_make_error_string(errbuf, AV_ERROR_MAX_STRING_SIZE, ret);
             std::cout << "❌ Failed to open RTSP stream: " << errbuf << std::endl;
             return false;
         }
@@ -1118,129 +261,390 @@ public:
         
         return frame_captured;
     }
-
-    void calibrateForLocation() {
-        std::cout << "Starting location calibration..." << std::endl;
+    
+    ExposureMetrics analyzeExposure(const std::vector<uint8_t>& rgb_data, int width, int height) {
+        ExposureMetrics metrics;
         
-        // Take test shots at different times
-        std::vector<ExposureMetrics> test_metrics;
-        
-        for (int i = 0; i < 5; i++) {
-            Mat frame = captureFrame();
-            if (!frame.empty()) {
-                ExposureMetrics metrics = analyzeExposure(frame);
-                test_metrics.push_back(metrics);
-                std::cout << "Test " << (i+1) << " brightness: " << metrics.mean_brightness << std::endl;
-            }
-            std::this_thread::sleep_for(std::chrono::seconds(2));
+        if (rgb_data.empty()) {
+            return metrics;
         }
         
-        if (!test_metrics.empty()) {
-            // Calculate average brightness and adjust target
-            double avg_brightness = 0;
-            for (const auto& m : test_metrics) {
-                avg_brightness += m.mean_brightness;
+        // Convert RGB to grayscale and analyze
+        std::vector<uint8_t> gray_data;
+        gray_data.reserve(width * height);
+        
+        double sum_brightness = 0.0;
+        double sum_squared = 0.0;
+        int highlight_count = 0;
+        int shadow_count = 0;
+        
+        // Initialize histogram
+        metrics.histogram.resize(256, 0.0f);
+        
+        // Process each pixel
+        for (int i = 0; i < width * height; i++) {
+            int pixel_idx = i * 3; // RGB format
+            if (pixel_idx + 2 < rgb_data.size()) {
+                uint8_t r = rgb_data[pixel_idx];
+                uint8_t g = rgb_data[pixel_idx + 1];
+                uint8_t b = rgb_data[pixel_idx + 2];
+                
+                // Convert to grayscale (standard weights)
+                uint8_t gray = static_cast<uint8_t>(0.299 * r + 0.587 * g + 0.114 * b);
+                gray_data.push_back(gray);
+                
+                // Accumulate statistics
+                sum_brightness += gray;
+                sum_squared += gray * gray;
+                
+                // Count clipped pixels
+                if (gray >= 250) highlight_count++;
+                if (gray <= 5) shadow_count++;
+                
+                // Build histogram
+                metrics.histogram[gray]++;
             }
-            avg_brightness /= test_metrics.size();
+        }
+        
+        int total_pixels = width * height;
+        if (total_pixels > 0) {
+            // Calculate metrics
+            metrics.mean_brightness = sum_brightness / total_pixels;
             
-            // Adjust target brightness based on current conditions
-            if (avg_brightness < 100) {
-                target_brightness = 110; // Lower target for low light
-            } else if (avg_brightness > 150) {
-                target_brightness = 140; // Higher target for bright conditions
+            // Calculate standard deviation (contrast)
+            double variance = (sum_squared / total_pixels) - (metrics.mean_brightness * metrics.mean_brightness);
+            metrics.contrast = std::sqrt(variance);
+            
+            // Calculate clipped percentages
+            metrics.clipped_highlights = (highlight_count * 100.0) / total_pixels;
+            metrics.clipped_shadows = (shadow_count * 100.0) / total_pixels;
+            
+            // Find dynamic range
+            auto min_it = std::find_if(gray_data.begin(), gray_data.end(), [](uint8_t val) { return val > 0; });
+            auto max_it = std::max_element(gray_data.begin(), gray_data.end());
+            if (min_it != gray_data.end() && max_it != gray_data.end()) {
+                metrics.dynamic_range = *max_it - *min_it;
             }
             
-            std::cout << "Calibrated target brightness: " << target_brightness << endl;
+            // Normalize histogram
+            for (auto& val : metrics.histogram) {
+                val /= total_pixels;
+            }
+            
+            // Calculate exposure score
+            metrics.exposure_score = calculateExposureScore(metrics);
+        }
+        
+        return metrics;
+    }
+    
+    double calculateExposureScore(const ExposureMetrics& metrics) {
+        double score = 100.0;
+        
+        // Penalize brightness deviation from target
+        double brightness_error = std::abs(metrics.mean_brightness - target_brightness);
+        score -= std::min(brightness_error * 2.0, 50.0);
+        
+        // Penalize clipped pixels
+        score -= metrics.clipped_highlights * 2.0;
+        score -= metrics.clipped_shadows * 2.0;
+        
+        // Reward good contrast (but not too much)
+        if (metrics.contrast < 30.0) {
+            score -= (30.0 - metrics.contrast);
+        } else if (metrics.contrast > 80.0) {
+            score -= (metrics.contrast - 80.0) * 0.5;
+        }
+        
+        // Reward good dynamic range
+        if (metrics.dynamic_range < 200.0) {
+            score -= (200.0 - metrics.dynamic_range) * 0.2;
+        }
+        
+        return std::max(0.0, std::min(100.0, score));
+    }
+    
+    double getSunAngleFactor() {
+        auto now = std::chrono::system_clock::now();
+        auto time_t = std::chrono::system_clock::to_time_t(now);
+        auto tm = *std::localtime(&time_t);
+        
+        double hour = tm.tm_hour + tm.tm_min / 60.0;
+        
+        if (hour >= 6.0 && hour <= 22.0) {
+            double solar_noon = 13.0;
+            double hour_angle = std::abs(hour - solar_noon);
+            double sun_elevation = 90.0 - (hour_angle * 12.0);
+            return std::max(0.0, sun_elevation / 90.0);
+        } else {
+            return 0.1;
         }
     }
+    
+    // HTTP request helper
+    std::string sendHTTPRequest(const std::string& url) {
+        struct WriteMemoryStruct {
+            char *memory;
+            size_t size;
+        };
+        
+        auto WriteMemoryCallback = [](void *contents, size_t size, size_t nmemb, struct WriteMemoryStruct *userp) -> size_t {
+            size_t realsize = size * nmemb;
+            userp->memory = (char*)realloc(userp->memory, userp->size + realsize + 1);
+            if (userp->memory == NULL) return 0;
+            
+            memcpy(&(userp->memory[userp->size]), contents, realsize);
+            userp->size += realsize;
+            userp->memory[userp->size] = 0;
+            
+            return realsize;
+        };
+        
+        struct WriteMemoryStruct chunk;
+        chunk.memory = (char*)malloc(1);
+        chunk.size = 0;
+        
+        curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
+        curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteMemoryCallback);
+        curl_easy_setopt(curl, CURLOPT_WRITEDATA, (void *)&chunk);
+        curl_easy_setopt(curl, CURLOPT_TIMEOUT, 5L);
+        
+        CURLcode res = curl_easy_perform(curl);
+        
+        std::string response;
+        if (res == CURLE_OK && chunk.memory) {
+            response = std::string(chunk.memory);
+        }
+        
+        if (chunk.memory) {
+            free(chunk.memory);
+        }
+        
+        return response;
+    }
+    
+    // ZCAMSettings suggestCameraSettings(const ExposureMetrics& metrics) {
+    //     ZCAMSettings settings;
+    //     settings.iso = current_iso;
+    //     settings.exposure_compensation = current_ev;
+    //     settings.aperture = current_aperture;
+    //     settings.shutter_angle = current_shutter_angle;
+        
+    //     double brightness_error = metrics.mean_brightness - target_brightness;
+    //     double sun_factor = getSunAngleFactor();
+
+    // }
+        
+    void cleanup() {
+        if (sws_ctx) {
+            sws_freeContext(sws_ctx);
+            sws_ctx = nullptr;
+        }
+        
+        if (codec_ctx) {
+            avcodec_free_context(&codec_ctx);
+            codec_ctx = nullptr;
+        }
+        
+        if (format_ctx) {
+            avformat_close_input(&format_ctx);
+            format_ctx = nullptr;
+        }
+        
+        std::cout << "🧹 FFmpeg resources cleaned up" << std::endl;
+    }
+    
+    ZCAMSettings suggestCameraSettings(const ExposureMetrics& metrics) {
+        ZCAMSettings settings;
+        settings.iso = current_iso;
+        settings.exposure_compensation = current_ev;
+        settings.aperture = current_aperture;
+        settings.shutter_angle = current_shutter_angle;
+        
+        double brightness_error = metrics.mean_brightness - target_brightness;
+        double sun_factor = getSunAngleFactor();
+        
+        // ISO adjustment using ZCAM dual native ISOs (500/2500)
+        if (metrics.mean_brightness < target_brightness - brightness_tolerance) {
+            // Too dark - increase ISO, prefer native ISOs
+            if (current_iso == 500) {
+                settings.iso = 1000;  // Step up from low native
+            } else if (current_iso < 2500) {
+                settings.iso = 2500;  // Jump to high native ISO
+            }
+        } else if (metrics.mean_brightness > target_brightness + brightness_tolerance) {
+            // Too bright - decrease ISO, prefer native ISOs  
+            if (current_iso == 2500) {
+                settings.iso = 1000;  // Step down from high native
+            } else if (current_iso > 500) {
+                settings.iso = 500;   // Back to low native ISO
+            }
+        }
+        
+        // EV compensation for fine-tuning
+        if (metrics.clipped_highlights > 5.0) {
+            settings.exposure_compensation = std::max(current_ev - 0.7, -2.0);
+        } else if (metrics.clipped_shadows > 10.0 && metrics.mean_brightness < 100.0) {
+            settings.exposure_compensation = std::min(current_ev + 0.5, 2.0);
+        }
+        
+        // Aperture based on lighting conditions
+        double current_f = std::stod(current_aperture);
+        if (sun_factor > 0.8) {
+            // Bright daylight - smaller aperture for sharpness
+            settings.aperture = "8.0";
+        } else if (sun_factor < 0.3) {
+            // Low light - wider aperture
+            settings.aperture = "2.8";
+        }
+        
+        // Shutter angle for surf motion
+        if (sun_factor > 0.6) {
+            settings.shutter_angle = 180;  // Standard motion blur
+        } else {
+            settings.shutter_angle = 270;  // More light in low conditions
+        }
+        
+        // Generate reasoning
+        std::vector<std::string> reasons;
+        if (std::abs(brightness_error) > brightness_tolerance) {
+            reasons.push_back(brightness_error < 0 ? "Too dark" : "Too bright");
+        }
+        if (metrics.clipped_highlights > 5.0) {
+            reasons.push_back("Highlights clipped");
+        }
+        if (metrics.clipped_shadows > 10.0) {
+            reasons.push_back("Shadows clipped");
+        }
+        if (sun_factor > 0.8) {
+            reasons.push_back("Bright daylight surfing");
+        } else if (sun_factor < 0.3) {
+            reasons.push_back("Low light surfing");
+        }
+        
+        settings.reasoning = reasons.empty() ? "Exposure optimal for surf recording" : reasons[0];
+        for (size_t i = 1; i < reasons.size(); i++) {
+            settings.reasoning += ", " + reasons[i];
+        }
+        
+        return settings;
+    }
+    
+    // Getters for current settings
+    int getCurrentISO() const { return current_iso; }
+    double getCurrentEV() const { return current_ev; }
+    string getCurrentAperture() const { return current_aperture; }
+    int getCurrentShutterAngle() const { return current_shutter_angle; }
 };
 
-// Example usage and main function
 int main(int argc, char* argv[]) {
+    std::string camera_ip = "192.168.150.201";
     
-    string camera_ip = "192.168.150.201"; // Default ZCAM IP
-    
-    // Parse command line arguments
     if (argc > 1) {
         camera_ip = argv[1];
     }
     
     try {
+        std::cout << "=== ZCAM E2-F8 FFmpeg Controller ===" << std::endl;
+        std::cout << "Using native FFmpeg C API (no OpenCV GDAL conflicts)" << std::endl;
         
-        cout << "Initializing ZCAM Surf Camera Controller..." << endl;
+        ZCAMFFmpegController controller(camera_ip);
         
-        // Initialize camera controller
-        ZCAMExposureController controller(camera_ip);
-
-        int analysis_count = 0;
-
-        Mat frame = controller.captureFrame();
-            
-        if (frame.empty()) {
-            cout << "❌ No frame available, retrying..." << std::endl;
-            this_thread::sleep_for(chrono::seconds(2));
-            return 0;
+        // Initialize RTSP stream
+        if (!controller.initializeStream()) {
+            std::cout << "❌ Failed to initialize RTSP stream" << std::endl;
+            return -1;
         }
-
-        // Analyze exposure from real camera feed
-        ExposureMetrics metrics = controller.analyzeExposure(frame);
-        analysis_count++;
+        
+        std::cout << "\n🎬 Starting live exposure monitoring..." << std::endl;
+        std::cout << "Press Ctrl+C to stop\n" << std::endl;
+        
+        int analysis_count = 0;
+        
+        while (true) {
+            analysis_count++;
             
-            // Display current analysis
-            auto now = chrono::system_clock::now();
-            auto time_t = chrono::system_clock::to_time_t(now);
-            auto tm = *localtime(&time_t);
+            auto now = std::chrono::system_clock::now();
+            auto time_t = std::chrono::system_clock::to_time_t(now);
+            auto tm = *std::localtime(&time_t);
             
             std::cout << "\n--- Analysis #" << analysis_count 
                      << " (" << std::put_time(&tm, "%H:%M:%S") << ") ---" << std::endl;
-            std::cout << "📊 Brightness: " << std::fixed << setprecision(1) 
-                     << metrics.mean_brightness << "/255";
             
-            if (metrics.mean_brightness < 100) {
-                std::cout << " (DARK 🌙)";
-            } else if (metrics.mean_brightness > 180) {
-                std::cout << " (BRIGHT ☀️)";
+            // Capture frame from RTSP
+            std::vector<uint8_t> rgb_data;
+            int width, height;
+            
+            if (controller.captureFrame(rgb_data, width, height)) {
+                // Analyze exposure
+                ExposureMetrics metrics = controller.analyzeExposure(rgb_data, width, height);
+                
+                std::cout << "📊 Brightness: " << std::fixed << std::setprecision(1) 
+                         << metrics.mean_brightness << "/255";
+                
+                if (metrics.mean_brightness < 100) {
+                    std::cout << " (DARK 🌙)";
+                } else if (metrics.mean_brightness > 180) {
+                    std::cout << " (BRIGHT ☀️)";
+                } else {
+                    std::cout << " (GOOD ✅)";
+                }
+                std::cout << std::endl;
+                
+                std::cout << "📊 Contrast: " << metrics.contrast << std::endl;
+                std::cout << "📊 Highlights clipped: " << metrics.clipped_highlights << "%" << std::endl;
+                std::cout << "📊 Shadows clipped: " << metrics.clipped_shadows << "%" << std::endl;
+                std::cout << "📊 Exposure score: " << metrics.exposure_score << "/100" << std::endl;
+                
+                // Get camera adjustment suggestions
+                // ZCAMSettings suggested = controller.suggestCameraSettings(metrics);
+                // std::cout << "💡 Analysis: " << suggested.reasoning << std::endl;
+                
+                // if (suggested.iso != controller.getCurrentISO() || 
+                //     std::abs(suggested.exposure_compensation - controller.getCurrentEV()) > 0.1) {
+                //     std::cout << "🔧 Suggested ZCAM adjustments:" << std::endl;
+                //     std::cout << "   ISO: " << controller.getCurrentISO() << " → " << suggested.iso;
+                //     if (suggested.iso == 500 || suggested.iso == 2500) {
+                //         std::cout << " (native)";
+                //     }
+                //     std::cout << std::endl;
+                //     std::cout << "   EV: " << controller.getCurrentEV() << " → " << suggested.exposure_compensation << std::endl;
+                //     std::cout << "   Aperture: f/" << controller.getCurrentAperture() << " → f/" << suggested.aperture << std::endl;
+                // }
+                
             } else {
-                std::cout << " (GOOD ✅)";
+                std::cout << "❌ Failed to capture frame, retrying..." << std::endl;
             }
-            std::cout << std::endl;
-            
-            std::cout << "📊 Contrast: " << metrics.contrast << std::endl;
-            std::cout << "📊 Highlights clipped: " << metrics.clipped_highlights << "%" << std::endl;
-            std::cout << "📊 Shadows clipped: " << metrics.clipped_shadows << "%" << std::endl;
-            std::cout << "📊 Exposure score: " << metrics.exposure_score << "/100" << std::endl;
-            
-            // Suggest camera adjustments
-            // ZCAMSettings suggested = controller.suggestCameraSettings(metrics);
-            // std::cout << "💡 Suggestion: " << suggested.reasoning << std::endl;
-            
-            // if (suggested.iso != controller.getCurrentISO() || 
-            //     std::abs(suggested.exposure_compensation - controller.getCurrentEV()) > 0.1) {
-            //     std::cout << "🔧 Recommended changes:" << std::endl;
-            //     std::cout << "   ISO: " << controller.getCurrentISO() << " → " << suggested.iso << std::endl;
-            //     std::cout << "   EV: " << controller.getCurrentEV() << " → " << suggested.exposure_compensation << std::endl;
-            // }
             
             // Wait before next analysis
-            std::this_thread::sleep_for(std::chrono::seconds(10));
-
+            std::this_thread::sleep_for(std::chrono::seconds(15));
+        }
+        
         return 0;
         
-        // Apply surf-specific optimizations
-        controller.setSurfOptimizedSettings();
-        
-        // Calibrate for current location/conditions
-        controller.calibrateForLocation();
-        
-        // Run automatic adjustment every 30 seconds
-        controller.runAutoAdjustment(60);
-        
     } catch (const std::exception& e) {
-        cerr << "Error: " << e.what() << std::endl;
-        cerr << "\nUsage: " << argv[0] << " [camera_ip]" << std::endl;
-        cerr << "Example: " << argv[0] << " 192.168.150.201" << std::endl;
+        std::cerr << "Error: " << e.what() << std::endl;
         return -1;
     }
-    
-    return 0;
 }
+
+/*
+COMPILATION:
+sudo apt install libavformat-dev libavcodec-dev libavutil-dev libswscale-dev libcurl4-openssl-dev libjsoncpp-dev
+
+g++ -std=c++17 -O2 zcam_ffmpeg.cpp \
+    -lavformat -lavcodec -lavutil -lswscale \
+    -lcurl -ljsoncpp -pthread \
+    -o zcam_ffmpeg_controller
+
+USAGE:
+./zcam_ffmpeg_controller 192.168.150.201
+
+This version:
+✅ Uses native FFmpeg C API (no OpenCV/GDAL conflicts)
+✅ Properly handles ZCAM RTSP with TCP transport  
+✅ Real-time exposure analysis from live stream
+✅ ZCAM-specific camera setting suggestions
+✅ Dual native ISO optimization (500/2500)
+✅ Surf-specific exposure recommendations
+*/
