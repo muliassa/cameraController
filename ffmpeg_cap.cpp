@@ -13,6 +13,24 @@ extern "C" {
 #include <libswscale/swscale.h>
 }
 
+struct ExposureMetrics {
+    double mean_brightness;
+    std::vector<float> histogram;
+    double dynamic_range;
+    double contrast;
+    double clipped_highlights;
+    double clipped_shadows;
+    double exposure_score;
+};
+
+struct ZCAMSettings {
+    int iso;
+    double exposure_compensation;
+    std::string aperture;
+    int shutter_angle;
+    std::string reasoning;
+};
+
 class SimpleZCAMCapture {
 private:
     std::string rtsp_url;
