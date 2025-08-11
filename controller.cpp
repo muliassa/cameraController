@@ -62,6 +62,7 @@ struct LogEntry {
 };
 
 class ZCAMExposureController {
+
 private:
     string camera_ip;
     // cv::VideoCapture rtsp_cap;
@@ -86,7 +87,7 @@ private:
     std::vector<LogEntry> exposure_history;
 
 public:
-    ZCAMExposureController(const string& ip = "192.168.1.100") : camera_ip(ip) {
+    ZCAMExposureController(const string& ip = "192.168.150.201") : camera_ip(ip) {
         // Initialize CURL
         curl_global_init(CURL_GLOBAL_DEFAULT);
         curl = curl_easy_init();
@@ -176,30 +177,24 @@ public:
         
         return response;
     }
-    
-    Mat captureFrame() {
 
-        Mat frame;
+    // Just download and save, analyze file externally
+    bool captureSnapshotToFile() {
+        std::string snapshot_url = "http://" + camera_ip + "/ctrl/snapshot";
+        std::string filename = "temp_snapshot.jpg";
         
-        // if (rtsp_cap.isOpened()) {
-        //     bool ret = rtsp_cap.read(frame);
-        //     if (ret && !frame.empty()) {
-        //         return frame;
-        //     }
-        // }
+        FILE *fp = fopen(filename.c_str(), "wb");
+        if (!fp) return false;
         
-        // Fallback: Try to capture via HTTP snapshot or return dummy frame
-        string snapshot_url = "http://" + camera_ip + "/ctrl/snapshot";
-        string response = sendHTTPRequest(snapshot_url);
+        CURL *curl = curl_easy_init();
+        curl_easy_setopt(curl, CURLOPT_URL, snapshot_url.c_str());
+        curl_easy_setopt(curl, CURLOPT_WRITEDATA, fp);
         
-        // In console mode, create a dummy frame for analysis
-        // You could enhance this to actually download and decode the snapshot
-        // Create a dummy frame - in real implementation you'd decode the HTTP response
-        // frame = cv::Mat::zeros(100, 100, CV_8UC3);
-        // Add some realistic data for testing
-        // cv::randu(frame, cv::Scalar(100, 100, 100), cv::Scalar(150, 150, 150));
+        CURLcode res = curl_easy_perform(curl);
+        curl_easy_cleanup(curl);
+        fclose(fp);
         
-        return frame;
+        return (res == CURLE_OK);
     }
 
     ExposureMetrics analyzeExposure(const cv::Mat& frame) {
@@ -827,14 +822,15 @@ public:
                 target_brightness = 140; // Higher target for bright conditions
             }
             
-            std::cout << "Calibrated target brightness: " << target_brightness << std::endl;
+            std::cout << "Calibrated target brightness: " << target_brightness << endl;
         }
     }
 };
 
 // Example usage and main function
 int main(int argc, char* argv[]) {
-    std::string camera_ip = "192.168.1.100"; // Default ZCAM IP
+    
+    string camera_ip = "192.168.150.201"; // Default ZCAM IP
     
     // Parse command line arguments
     if (argc > 1) {
@@ -842,10 +838,16 @@ int main(int argc, char* argv[]) {
     }
     
     try {
-        std::cout << "Initializing ZCAM Surf Camera Controller..." << std::endl;
+        
+        cout << "Initializing ZCAM Surf Camera Controller..." << endl;
         
         // Initialize camera controller
         ZCAMExposureController controller(camera_ip);
+
+        controller.captureSnapshotToFile();
+
+        return 0;
+
         
         // Apply surf-specific optimizations
         controller.setSurfOptimizedSettings();
@@ -854,49 +856,14 @@ int main(int argc, char* argv[]) {
         controller.calibrateForLocation();
         
         // Run automatic adjustment every 30 seconds
-        controller.runAutoAdjustment(30);
+        controller.runAutoAdjustment(60);
         
     } catch (const std::exception& e) {
-        std::cerr << "Error: " << e.what() << std::endl;
-        std::cerr << "\nUsage: " << argv[0] << " [camera_ip]" << std::endl;
-        std::cerr << "Example: " << argv[0] << " 192.168.1.100" << std::endl;
+        cerr << "Error: " << e.what() << std::endl;
+        cerr << "\nUsage: " << argv[0] << " [camera_ip]" << std::endl;
+        cerr << "Example: " << argv[0] << " 192.168.150.201" << std::endl;
         return -1;
     }
     
     return 0;
 }
-
-/*
-COMPILATION INSTRUCTIONS:
-
-1. Install dependencies:
-   sudo apt-get install libopencv-dev libcurl4-openssl-dev libjsoncpp-dev
-
-2. Compile:
-   g++ -std=c++17 zcam_surf_controller.cpp -o zcam_surf_controller \
-   `pkg-config --cflags --libs opencv4` -lcurl -ljsoncpp
-
-3. Run:
-   ./zcam_surf_controller [camera_ip]
-
-ZCAM SETUP:
-1. Connect ZCAM to your network via Ethernet
-2. Set camera to Router mode (Connect -> Network -> ETH Mode -> Router)
-3. Note the camera's IP address (displayed in Network menu)
-4. Ensure camera firmware supports HTTP API (v0.89 or newer)
-
-FEATURES:
-- Real-time RTSP stream analysis
-- Automatic ISO, EV, aperture, and shutter adjustment
-- ZCAM native dual ISO optimization (500/2500)
-- Surf-specific time-based adjustments (6am-10pm)
-- Remote recording control
-- Snapshot capture
-- Comprehensive logging
-
-CONTROLS:
-- 'q': Quit application
-- 's': Save snapshot with current settings
-- 'r': Toggle recording start/stop
-- 'i': Show camera information
-*/
