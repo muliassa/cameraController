@@ -122,7 +122,7 @@ private:
 public:
     ZCAMFFmpegController(const std::string& camera_ip) {
         rtsp_url = "rtsp://" + camera_ip + "/live_stream";
-        http_base_url = "http://" + camera_ip + "/ctrl";
+        http_base_url = "http://" + camera_ip;
         
         // Initialize FFmpeg
         #if LIBAVFORMAT_VERSION_INT < AV_VERSION_INT(58, 9, 100)
