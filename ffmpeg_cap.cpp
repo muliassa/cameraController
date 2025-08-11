@@ -41,6 +41,108 @@ public:
         avformat_network_deinit();
     }
     
+    ExposureMetrics analyzeExposure(const std::vector<uint8_t>& rgb_data, int width, int height) {
+        ExposureMetrics metrics;
+        
+        if (rgb_data.empty()) {
+            return metrics;
+        }
+        
+        // Convert RGB to grayscale and analyze
+        std::vector<uint8_t> gray_data;
+        gray_data.reserve(width * height);
+        
+        double sum_brightness = 0.0;
+        double sum_squared = 0.0;
+        int highlight_count = 0;
+        int shadow_count = 0;
+        
+        // Initialize histogram
+        metrics.histogram.resize(256, 0.0f);
+        
+        // Process each pixel
+        for (int i = 0; i < width * height; i++) {
+            size_t pixel_idx = static_cast<size_t>(i) * 3; // RGB format
+            if (pixel_idx + 2 < rgb_data.size()) {
+                uint8_t r = rgb_data[pixel_idx];
+                uint8_t g = rgb_data[pixel_idx + 1];
+                uint8_t b = rgb_data[pixel_idx + 2];
+                
+                // Convert to grayscale (standard weights)
+                uint8_t gray = static_cast<uint8_t>(0.299 * r + 0.587 * g + 0.114 * b);
+                gray_data.push_back(gray);
+                
+                // Accumulate statistics
+                sum_brightness += gray;
+                sum_squared += gray * gray;
+                
+                // Count clipped pixels
+                if (gray >= 250) highlight_count++;
+                if (gray <= 5) shadow_count++;
+                
+                // Build histogram
+                metrics.histogram[gray]++;
+            }
+        }
+        
+        int total_pixels = width * height;
+        if (total_pixels > 0) {
+            // Calculate metrics
+            metrics.mean_brightness = sum_brightness / total_pixels;
+            
+            // Calculate standard deviation (contrast)
+            double variance = (sum_squared / total_pixels) - (metrics.mean_brightness * metrics.mean_brightness);
+            metrics.contrast = std::sqrt(variance);
+            
+            // Calculate clipped percentages
+            metrics.clipped_highlights = (highlight_count * 100.0) / total_pixels;
+            metrics.clipped_shadows = (shadow_count * 100.0) / total_pixels;
+            
+            // Find dynamic range
+            auto min_it = std::find_if(gray_data.begin(), gray_data.end(), [](uint8_t val) { return val > 0; });
+            auto max_it = std::max_element(gray_data.begin(), gray_data.end());
+            if (min_it != gray_data.end() && max_it != gray_data.end()) {
+                metrics.dynamic_range = *max_it - *min_it;
+            }
+            
+            // Normalize histogram
+            for (auto& val : metrics.histogram) {
+                val /= total_pixels;
+            }
+            
+            // Calculate exposure score
+            metrics.exposure_score = calculateExposureScore(metrics);
+        }
+        
+        return metrics;
+    }
+    
+    double calculateExposureScore(const ExposureMetrics& metrics) {
+        double score = 100.0;
+        
+        // Penalize brightness deviation from target
+        double brightness_error = std::abs(metrics.mean_brightness - target_brightness);
+        score -= std::min(brightness_error * 2.0, 50.0);
+        
+        // Penalize clipped pixels
+        score -= metrics.clipped_highlights * 2.0;
+        score -= metrics.clipped_shadows * 2.0;
+        
+        // Reward good contrast (but not too much)
+        if (metrics.contrast < 30.0) {
+            score -= (30.0 - metrics.contrast);
+        } else if (metrics.contrast > 80.0) {
+            score -= (metrics.contrast - 80.0) * 0.5;
+        }
+        
+        // Reward good dynamic range
+        if (metrics.dynamic_range < 200.0) {
+            score -= (200.0 - metrics.dynamic_range) * 0.2;
+        }
+        
+        return std::max(0.0, std::min(100.0, score));
+    }
+    
     bool connect() {
         std::cout << "🔌 Connecting to ZCAM..." << std::endl;
         
@@ -488,28 +590,26 @@ int main(int argc, char* argv[]) {
             std::cout << "\n🎉 SUCCESS!" << std::endl;
             std::cout << "📊 Frame captured: " << width << "x" << height << std::endl;
             std::cout << "📊 RGB data size: " << rgb_data.size() << " bytes" << std::endl;
-            
-            // Quick brightness check
-            if (!rgb_data.empty()) {
-                uint64_t sum = 0;
-                for (size_t i = 0; i < rgb_data.size(); i += 3) {
-                    uint8_t r = rgb_data[i];
-                    uint8_t g = rgb_data[i + 1];
-                    uint8_t b = rgb_data[i + 2];
-                    uint8_t gray = (uint8_t)(0.299 * r + 0.587 * g + 0.114 * b);
-                    sum += gray;
-                }
-                double avg_brightness = (double)sum / (rgb_data.size() / 3);
-                std::cout << "💡 Average brightness: " << avg_brightness << "/255" << std::endl;
+
+            // Analyze exposure
+                ExposureMetrics metrics = controller.analyzeExposure(rgb_data, width, height);
                 
-                if (avg_brightness < 50) {
-                    std::cout << "📊 Image appears DARK 🌙" << std::endl;
-                } else if (avg_brightness > 200) {
-                    std::cout << "📊 Image appears BRIGHT ☀️" << std::endl;
+                std::cout << "📊 Brightness: " << std::fixed << setprecision(1) 
+                         << metrics.mean_brightness << "/255";
+                
+                if (metrics.mean_brightness < 100) {
+                    std::cout << " (DARK 🌙)";
+                } else if (metrics.mean_brightness > 180) {
+                    std::cout << " (BRIGHT ☀️)";
                 } else {
-                    std::cout << "📊 Image brightness looks good ✅" << std::endl;
+                    std::cout << " (GOOD ✅)";
                 }
-            }
+                std::cout << std::endl;
+                
+                std::cout << "📊 Contrast: " << metrics.contrast << std::endl;
+                std::cout << "📊 Highlights clipped: " << metrics.clipped_highlights << "%" << std::endl;
+                std::cout << "📊 Shadows clipped: " << metrics.clipped_shadows << "%" << std::endl;
+                std::cout << "📊 Exposure score: " << metrics.exposure_score << "/100" << std::endl;
             
         } else {
             std::cout << "\n❌ FAILED to capture frame" << std::endl;
