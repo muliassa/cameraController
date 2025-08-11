@@ -13,6 +13,8 @@
 #include <algorithm>
 #include <string>
 
+using namespace std;
+
 // ZCAM HTTP Response structure
 struct WriteMemoryStruct {
     char *memory;
@@ -68,22 +70,22 @@ private:
     double brightness_tolerance = 15.0;
     
     // ZCAM E2 parameter ranges
-    std::vector<int> iso_values = {100, 125, 160, 200, 250, 320, 400, 500, 640, 800, 1000, 1250, 1600, 2000, 2500, 3200, 4000, 5000, 6400, 8000, 10000, 12800};
-    std::vector<int> native_iso_values = {500, 2500}; // Dual native ISO for E2
-    std::pair<double, double> ev_range = {-3.0, 3.0};
-    std::vector<std::string> aperture_values = {"1.4", "1.6", "1.8", "2.0", "2.2", "2.5", "2.8", "3.2", "3.5", "4.0", "4.5", "5.0", "5.6", "6.3", "7.1", "8.0", "9.0", "10", "11", "13", "14", "16"};
+    vector<int> iso_values = {100, 125, 160, 200, 250, 320, 400, 500, 640, 800, 1000, 1250, 1600, 2000, 2500, 3200, 4000, 5000, 6400, 8000, 10000, 12800};
+    vector<int> native_iso_values = {500, 2500}; // Dual native ISO for E2
+    pair<double, double> ev_range = {-3.0, 3.0};
+    vector<string> aperture_values = {"1.4", "1.6", "1.8", "2.0", "2.2", "2.5", "2.8", "3.2", "3.5", "4.0", "4.5", "5.0", "5.6", "6.3", "7.1", "8.0", "9.0", "10", "11", "13", "14", "16"};
     
     // Current settings
     int current_iso = 500;
     double current_ev = 0.0;
-    std::string current_aperture = "5.6";
+    string current_aperture = "5.6";
     int current_shutter_angle = 180;
     
     // History for learning
     std::vector<LogEntry> exposure_history;
 
 public:
-    ZCAMExposureController(const std::string& ip = "192.168.1.100") : camera_ip(ip) {
+    ZCAMExposureController(const string& ip = "192.168.1.100") : camera_ip(ip) {
         // Initialize CURL
         curl_global_init(CURL_GLOBAL_DEFAULT);
         curl = curl_easy_init();
@@ -576,14 +578,14 @@ public:
         cv::Mat display_frame = frame.clone();
         
         // Add ZCAM exposure info overlay
-        std::vector<std::string> info_text = {
-            "ZCAM E2 Surf Monitor",
-            "Brightness: " + std::to_string(static_cast<int>(metrics.mean_brightness)),
-            "Score: " + std::to_string(static_cast<int>(metrics.exposure_score)) + "/100",
-            "ISO: " + std::to_string(current_iso) + (current_iso == 500 || current_iso == 2500 ? "*" : ""),
-            "EV: " + (current_ev >= 0 ? "+" : "") + std::to_string(current_ev).substr(0, 4),
-            "f/" + current_aperture,
-            "Shutter: " + std::to_string(current_shutter_angle) + "°"
+        vector<string> info_text = {
+            String("ZCAM E2 Surf Monitor"),
+            String("Brightness: ") + to_string(static_cast<int>(metrics.mean_brightness)),
+            String("Score: ") + to_string(static_cast<int>(metrics.exposure_score)) + "/100",
+            String("ISO: ") + to_string(current_iso) + (current_iso == 500 || current_iso == 2500 ? "*" : ""),
+            String("EV: ") + String(current_ev >= 0 ? "+" : "") + to_string(current_ev).substr(0, 4),
+            String("f/") + current_aperture,
+            String("Shutter: ") + to_string(current_shutter_angle) + String("°")
         };
         
         for (size_t i = 0; i < info_text.size(); i++) {
