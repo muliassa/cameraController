@@ -103,6 +103,8 @@ public:
             AVStream *stream = format_ctx->streams[i];
             if (stream && stream->codecpar) {
                 std::cout << "   Stream #" << i << ": codec_type=" << stream->codecpar->codec_type;
+                std::cout << " codec_id=" << stream->codecpar->codec_id;
+                std::cout << " size=" << stream->codecpar->width << "x" << stream->codecpar->height;
                 std::cout << " (VIDEO=" << AVMEDIA_TYPE_VIDEO << ")" << std::endl;
                 
                 if (stream->codecpar->codec_type == AVMEDIA_TYPE_VIDEO) {
@@ -110,11 +112,13 @@ public:
                     std::cout << "✅ Found video stream at index " << i << " (direct check)" << std::endl;
                     return true;
                 }
+            } else {
+                std::cout << "   Stream #" << i << ": NULL codecpar - needs packet analysis" << std::endl;
             }
         }
         
-        // If direct check failed, try packet-based detection
-        std::cout << "🔍 Trying packet-based detection..." << std::endl;
+        // If direct check failed, try packet-based detection and codec discovery
+        std::cout << "🔍 Trying packet-based detection with codec analysis..." << std::endl;
         
         AVPacket *pkt = av_packet_alloc();
         if (!pkt) {
@@ -125,7 +129,8 @@ public:
         std::vector<int> stream_sizes(format_ctx->nb_streams, 0);
         std::vector<int> stream_counts(format_ctx->nb_streams, 0);
         
-        for (int i = 0; i < 20; i++) { // Read fewer packets to avoid issues
+        // Read packets and try to identify codecs
+        for (int i = 0; i < 30; i++) { 
             int ret = av_read_frame(format_ctx, pkt);
             if (ret < 0) {
                 char errbuf[AV_ERROR_MAX_STRING_SIZE];
@@ -137,33 +142,73 @@ public:
             if (pkt->stream_index < static_cast<int>(stream_sizes.size())) {
                 stream_sizes[pkt->stream_index] += pkt->size;
                 stream_counts[pkt->stream_index]++;
+                
+                // Try to detect H.264 pattern in large packets (likely video)
+                if (pkt->size > 1000) {
+                    // Look for H.264 NAL unit start codes
+                    bool has_nal_header = false;
+                    if (pkt->size >= 4) {
+                        uint8_t *data = pkt->data;
+                        // Check for 0x00000001 (4-byte start code) or 0x000001 (3-byte start code)
+                        if ((data[0] == 0x00 && data[1] == 0x00 && data[2] == 0x00 && data[3] == 0x01) ||
+                            (data[0] == 0x00 && data[1] == 0x00 && data[2] == 0x01)) {
+                            has_nal_header = true;
+                        }
+                    }
+                    
+                    if (has_nal_header && video_stream_index == -1) {
+                        video_stream_index = pkt->stream_index;
+                        std::cout << "   🎬 Detected H.264 video in stream #" << pkt->stream_index 
+                                 << " (NAL units found)" << std::endl;
+                        
+                        // Try to populate basic codec info for this stream
+                        AVStream *stream = format_ctx->streams[pkt->stream_index];
+                        if (stream && stream->codecpar) {
+                            stream->codecpar->codec_type = AVMEDIA_TYPE_VIDEO;
+                            stream->codecpar->codec_id = AV_CODEC_ID_H264;
+                            std::cout << "   📝 Set codec info: H.264 video" << std::endl;
+                        }
+                    }
+                }
             }
             
             av_packet_unref(pkt);
         }
         
-        // Find stream with most data (likely video)
-        int best_stream = -1;
-        int max_data = 0;
-        
+        // Print analysis results
         for (size_t i = 0; i < stream_sizes.size(); i++) {
             std::cout << "   Stream #" << i << ": " << stream_counts[i] 
-                     << " packets, " << stream_sizes[i] << " bytes total" << std::endl;
-            
-            if (stream_sizes[i] > max_data && stream_sizes[i] > 5000) { // At least 5KB
-                max_data = stream_sizes[i];
-                best_stream = static_cast<int>(i);
+                     << " packets, " << stream_sizes[i] << " bytes total";
+            if (static_cast<int>(i) == video_stream_index) {
+                std::cout << " (IDENTIFIED AS VIDEO)";
             }
-        }
-        
-        if (best_stream >= 0) {
-            video_stream_index = best_stream;
-            std::cout << "✅ Assuming stream #" << best_stream << " is video (largest data)" << std::endl;
-            av_packet_free(&pkt);
-            return true;
+            std::cout << std::endl;
         }
         
         av_packet_free(&pkt);
+        
+        if (video_stream_index >= 0) {
+            std::cout << "✅ Video stream identified: #" << video_stream_index << std::endl;
+            return true;
+        }
+        
+        // Last resort - assume stream 0 is video if it has substantial data
+        for (size_t i = 0; i < stream_sizes.size(); i++) {
+            if (stream_sizes[i] > 50000) { // At least 50KB suggests video
+                video_stream_index = static_cast<int>(i);
+                std::cout << "⚠️ Assuming stream #" << i << " is video based on data size" << std::endl;
+                
+                // Force set codec parameters
+                AVStream *stream = format_ctx->streams[i];
+                if (stream && stream->codecpar) {
+                    stream->codecpar->codec_type = AVMEDIA_TYPE_VIDEO;
+                    stream->codecpar->codec_id = AV_CODEC_ID_H264; // Most common for IP cameras
+                    std::cout << "   📝 Forced codec info: H.264 video" << std::endl;
+                }
+                return true;
+            }
+        }
+        
         std::cout << "❌ Could not identify video stream" << std::endl;
         return false;
     }
