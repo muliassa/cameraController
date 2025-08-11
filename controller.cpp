@@ -37,6 +37,22 @@ struct ZCAMSettings {
     std::string reasoning;
 };
 
+struct CameraState {
+    // Current settings (would be read from camera API)
+    int current_iso = 500;
+    double current_ev = 0.0;
+    std::string current_aperture = "5.6";
+    int current_shutter_angle = 180;
+    
+    // Scene analysis
+    double sun_factor = 0.5;
+    std::string scene_type = "unknown";
+    
+    // Targets
+    double target_brightness = 128.0;
+    double brightness_tolerance = 15.0;
+};
+
 struct LogEntry {
     std::string timestamp;
     ExposureMetrics metrics;
@@ -51,6 +67,8 @@ private:
     std::string camera_ip;
     std::string rtsp_url;
     CURL *curl;
+
+    CameraState camera_state;
     
     // FFmpeg components
     AVFormatContext *format_ctx = nullptr;
