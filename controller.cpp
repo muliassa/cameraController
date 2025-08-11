@@ -84,6 +84,7 @@ class ZCAMFFmpegController {
 private:
     std::string camera_ip;
     std::string rtsp_url;
+    string http_base_url;
     CURL *curl;
 
     CameraState camera_state;
@@ -109,6 +110,11 @@ private:
     double current_ev = 0.0;
     string current_aperture = "5.6";
     int current_shutter_angle = 180;
+
+    // Control settings
+    bool auto_adjust_enabled = true;
+    double confidence_threshold = 0.6;  // Only apply changes if confidence > 60%
+    int changes_applied = 0;
     
     // History for learning
     std::vector<LogEntry> exposure_history;
@@ -116,6 +122,7 @@ private:
 public:
     ZCAMFFmpegController(const std::string& camera_ip) {
         rtsp_url = "rtsp://" + camera_ip + "/live_stream";
+        http_base_url = "http://" + camera_ip + "/ctrl";
         
         // Initialize FFmpeg
         #if LIBAVFORMAT_VERSION_INT < AV_VERSION_INT(58, 9, 100)
@@ -909,7 +916,7 @@ public:
         
         if (!curl) return response;
         
-        std::string url = http_base_url + endpoint;
+        string url = http_base_url + endpoint;
         
         curl_easy_reset(curl);
         curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
