@@ -19,7 +19,6 @@ extern "C" {
 }
 
 using namespace std;
-using namespace cv;
 
 struct ExposureMetrics {
     double mean_brightness;
@@ -320,8 +319,8 @@ public:
             metrics.clipped_shadows = (shadow_count * 100.0) / total_pixels;
             
             // Find dynamic range
-            auto min_it = std::find_if(gray_data.begin(), gray_data.end(), [](uint8_t val) { return val > 0; });
-            auto max_it = std::max_element(gray_data.begin(), gray_data.end());
+            auto min_it = find(gray_data.begin(), gray_data.end(), [](uint8_t val) { return val > 0; });
+            auto max_it = max_element(gray_data.begin(), gray_data.end());
             if (min_it != gray_data.end() && max_it != gray_data.end()) {
                 metrics.dynamic_range = *max_it - *min_it;
             }
