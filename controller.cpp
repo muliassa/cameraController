@@ -897,7 +897,7 @@ int main(int argc, char* argv[]) {
                 
                 // Get camera adjustment suggestions
 
-                ZCAMSettings suggested = recommendSettings(const ExposureMetrics& metrics) {
+                ZCAMSettings suggested = controller.recommendSettings(ExposureMetrics& metrics);
 
                 cout << "💡 Analysis: " << suggested.reasoning << std::endl;
                 cout << "   ISO: " << controller.getCurrentISO() << " → " << suggested.iso;
