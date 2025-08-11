@@ -76,6 +76,7 @@ class ZCAMExposureController {
 
 private:
     string camera_ip;
+    string rtsp_url;
     // cv::VideoCapture rtsp_cap;
     CURL *curl;
     
