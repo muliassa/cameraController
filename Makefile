@@ -5,7 +5,7 @@ CXX = g++
 BUILD_DIR = build
 
 # Source files - add only the needed SDK implementation files
-SOURCES = controller.cpp 
+SOURCES = ffmpeg.cpp 
 
 TARGET = $(BUILD_DIR)/cameraController
 
@@ -23,8 +23,7 @@ LIB_DIRS = -L/lib/x86_64-linux-gnu/
 #        -lavformat -lavcodec -lavutil
 
 # Libraries - CUDA 12.x NPP libraries with explicit FFmpeg 6.1.1 paths
-LIBS = -lopencv_core -lopencv_imgproc -lcurl -ljsoncpp -lavformat \
-    -Wl,--exclude-libs,libgdal.so.34
+LIBS = -lavformat -lavcodec -lavutil -lswscale
 
 # Compiler flags
 CXXFLAGS = -std=c++17 -O2 -Wall
