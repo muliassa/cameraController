@@ -268,9 +268,9 @@ public:
         
         // EV compensation for fine tuning
         if (metrics.clipped_highlights > 5.0) {
-            settings.exposure_compensation = std::max(current_ev - 0.5, ev_range.first);
+            settings.exposure_compensation = max(current_ev - 0.5, ev_range.first);
         } else if (metrics.clipped_shadows > 10.0 && metrics.mean_brightness < 100.0) {
-            settings.exposure_compensation = std::min(current_ev + 0.3, ev_range.second);
+            settings.exposure_compensation = min(current_ev + 0.3, ev_range.second);
         }
         
         // Aperture adjustment based on lighting and depth of field needs
@@ -821,7 +821,7 @@ int main(int argc, char* argv[]) {
                 } else {
                     std::cout << " (GOOD ✅)";
                 }
-                std::cout << std::endl;
+                cout << std::endl;
                 
                 std::cout << "📊 Contrast: " << metrics.contrast << std::endl;
                 std::cout << "📊 Highlights clipped: " << metrics.clipped_highlights << "%" << std::endl;
@@ -830,7 +830,9 @@ int main(int argc, char* argv[]) {
                 
                 // Get camera adjustment suggestions
                 ZCAMSettings suggested = controller.suggestCameraSettings(metrics);
-                std::cout << "💡 Analysis: " << suggested.reasoning << std::endl;
+                cout << "💡 Analysis: " << suggested.reasoning << std::endl;
+                cout << "   ISO: " << controller.getCurrentISO() << " → " << suggested.iso;
+                cout << "💡 Suggested ISO: " << suggested.iso << std::endl;
                 
                 if (suggested.iso != controller.getCurrentISO() || 
                     std::abs(suggested.exposure_compensation - controller.getCurrentEV()) > 0.1) {
