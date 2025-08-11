@@ -36,6 +36,13 @@ struct ZCAMSettings {
     std::string reasoning;
 };
 
+struct LogEntry {
+    std::string timestamp;
+    ExposureMetrics metrics;
+    ZCAMSettings settings;
+    double sun_factor;
+};
+
 using namespace std;
 
 class ZCAMFFmpegController {
