@@ -34,6 +34,8 @@ struct ZCAMSettings {
     std::string reasoning;
 };
 
+using namespace std;
+
 class ZCAMFFmpegController {
 private:
     std::string camera_ip;
