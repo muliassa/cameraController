@@ -584,20 +584,20 @@ int main(int argc, char* argv[]) {
                 std::cout << "📊 Exposure score: " << metrics.exposure_score << "/100" << std::endl;
                 
                 // Get camera adjustment suggestions
-                ZCAMSettings suggested = controller.suggestCameraSettings(metrics);
-                std::cout << "💡 Analysis: " << suggested.reasoning << std::endl;
+                // ZCAMSettings suggested = controller.suggestCameraSettings(metrics);
+                // std::cout << "💡 Analysis: " << suggested.reasoning << std::endl;
                 
-                if (suggested.iso != controller.getCurrentISO() || 
-                    std::abs(suggested.exposure_compensation - controller.getCurrentEV()) > 0.1) {
-                    std::cout << "🔧 Suggested ZCAM adjustments:" << std::endl;
-                    std::cout << "   ISO: " << controller.getCurrentISO() << " → " << suggested.iso;
-                    if (suggested.iso == 500 || suggested.iso == 2500) {
-                        std::cout << " (native)";
-                    }
-                    std::cout << std::endl;
-                    std::cout << "   EV: " << controller.getCurrentEV() << " → " << suggested.exposure_compensation << std::endl;
-                    std::cout << "   Aperture: f/" << controller.getCurrentAperture() << " → f/" << suggested.aperture << std::endl;
-                }
+                // if (suggested.iso != controller.getCurrentISO() || 
+                //     std::abs(suggested.exposure_compensation - controller.getCurrentEV()) > 0.1) {
+                //     std::cout << "🔧 Suggested ZCAM adjustments:" << std::endl;
+                //     std::cout << "   ISO: " << controller.getCurrentISO() << " → " << suggested.iso;
+                //     if (suggested.iso == 500 || suggested.iso == 2500) {
+                //         std::cout << " (native)";
+                //     }
+                //     std::cout << std::endl;
+                //     std::cout << "   EV: " << controller.getCurrentEV() << " → " << suggested.exposure_compensation << std::endl;
+                //     std::cout << "   Aperture: f/" << controller.getCurrentAperture() << " → f/" << suggested.aperture << std::endl;
+                // }
                 
             } else {
                 std::cout << "❌ Failed to capture frame, retrying..." << std::endl;
