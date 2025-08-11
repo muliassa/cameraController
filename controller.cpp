@@ -113,7 +113,7 @@ public:
         
         cout << "ZCAM Exposure Controller initialized successfully" << std::endl;
         cout << "Camera IP: " << camera_ip << std::endl;
-        cout << "RTSP Stream: " << rtsp_url << std::endl;
+        // cout << "RTSP Stream: " << rtsp_url << std::endl;
     }
     
     ~ZCAMExposureController() {
