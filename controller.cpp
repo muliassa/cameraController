@@ -612,7 +612,7 @@ public:
         }
         
         // Add recording indicator
-        auto now = std::chrono::system_clock::now();
+        auto now = chrono::system_clock::now();
         auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()) % 1000;
         if (ms.count() < 500) { // Blinking red dot
             cv::circle(display_frame, cv::Point(display_frame.cols - 30, 30), 8, cv::Scalar(0, 0, 255), -1);
@@ -620,7 +620,7 @@ public:
                        cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 0, 255), 2);
         }
         
-        cv::imshow("ZCAM Surf Auto Exposure", display_frame);
+        // cv::imshow("ZCAM Surf Auto Exposure", display_frame);
     }
     
     void runAutoAdjustment(int interval_seconds = 30) {
