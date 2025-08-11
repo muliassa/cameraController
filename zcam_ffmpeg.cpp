@@ -134,13 +134,27 @@ public:
         // Find stream information
         std::cout << "🔍 Analyzing stream info..." << std::endl;
         format_ctx->max_analyze_duration = 1000000; // 1 second timeout
+
+        // int ret_info = avformat_find_stream_info(format_ctx, nullptr);
+        // if (ret_info < 0) {
+        //     char errbuf[AV_ERROR_MAX_STRING_SIZE];
+        //     av_make_error_string(errbuf, AV_ERROR_MAX_STRING_SIZE, ret_info);
+        //     std::cout << "❌ Failed to find stream info: " << errbuf << std::endl;
+        //     return false;
+        // }
+
         int ret_info = avformat_find_stream_info(format_ctx, nullptr);
         if (ret_info < 0) {
             char errbuf[AV_ERROR_MAX_STRING_SIZE];
             av_make_error_string(errbuf, AV_ERROR_MAX_STRING_SIZE, ret_info);
-            std::cout << "❌ Failed to find stream info: " << errbuf << std::endl;
-            return false;
+            std::cout << "⚠️ Stream info discovery failed: " << errbuf << std::endl;
+            std::cout << "🔄 Trying to proceed with basic stream detection..." << std::endl;
+            // Don't return false - continue anyway
+        } else {
+            std::cout << "✅ Stream info found" << std::endl;
         }
+
+
 
         std::cout << "   Number of streams: " << format_ctx->nb_streams << std::endl;
 
@@ -160,11 +174,14 @@ public:
                 std::cout << "   Stream #" << i << ": null stream or codecpar" << std::endl;
             }
         }
-        
+
         if (video_stream_index == -1) {
-            std::cout << "❌ No video stream found" << std::endl;
-            return false;
-        }
+            std::cout << "🔄 Trying manual stream probing..." << std::endl;
+            if (!probeStreamsManually()) {
+                std::cout << "❌ No usable video stream found" << std::endl;
+                return false;
+            }
+        }        
         
         // Get codec parameters
         AVCodecParameters *codec_params = format_ctx->streams[video_stream_index]->codecpar;
@@ -202,7 +219,51 @@ public:
         
         return true;
     }
-    
+
+    bool probeStreamsManually() {
+        std::cout << "🔍 Manually probing streams..." << std::endl;
+        
+        // Try to read a few packets to understand stream structure
+        AVPacket *pkt = av_packet_alloc();
+        if (!pkt) {
+            std::cout << "❌ Failed to allocate packet" << std::endl;
+            return false;
+        }
+        
+        for (int i = 0; i < 10; i++) { // Try up to 10 packets
+            int ret = av_read_frame(format_ctx, pkt);
+            if (ret < 0) {
+                if (ret == AVERROR_EOF) {
+                    std::cout << "   Reached end of stream" << std::endl;
+                } else {
+                    char errbuf[AV_ERROR_MAX_STRING_SIZE];
+                    av_make_error_string(errbuf, AV_ERROR_MAX_STRING_SIZE, ret);
+                    std::cout << "   Packet read error: " << errbuf << std::endl;
+                }
+                break;
+            }
+            
+            std::cout << "   Packet from stream #" << pkt->stream_index 
+                     << ", size: " << pkt->size << " bytes" << std::endl;
+            
+            // If we find a stream with substantial data, assume it's video
+            if (pkt->size > 1000 && video_stream_index == -1) {
+                video_stream_index = pkt->stream_index;
+                std::cout << "   🎥 Assuming stream #" << pkt->stream_index << " is video (size: " << pkt->size << ")" << std::endl;
+            }
+            
+            av_packet_unref(pkt);
+        }
+        
+        av_packet_free(&pkt);
+        
+        if (video_stream_index >= 0) {
+            std::cout << "✅ Manual detection found video stream #" << video_stream_index << std::endl;
+            return true;
+        }
+        
+        return false;
+    }    
     bool captureFrame(std::vector<uint8_t>& rgb_data, int& width, int& height) {
         if (!format_ctx || !codec_ctx) {
             std::cout << "❌ Stream not initialized" << std::endl;
