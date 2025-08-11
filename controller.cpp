@@ -132,10 +132,19 @@ public:
         
         saveFinalLog();
     }
-    
+
     bool testCameraConnection() {
-        std::string url = "http://" + camera_ip + "/info";
-        std::string response = sendHTTPRequest(url);
+        std::string info_url = "http://" + camera_ip + "/info";
+        std::cout << "🔍 Testing camera connection..." << std::endl;
+        std::cout << "   URL: " << info_url << std::endl;
+        
+        std::string response = sendHTTPRequest(info_url);
+        
+        std::cout << "📊 Response length: " << response.length() << " chars" << std::endl;
+        if (response.length() > 0) {
+            std::cout << "📊 Response preview: " << response.substr(0, std::min(200, (int)response.length())) << std::endl;
+        }
+        
         return !response.empty() && response.find("model") != std::string::npos;
     }
     
@@ -179,9 +188,9 @@ public:
         
         return response;
     }
-    
+
     bool captureSnapshotToFile() {
-        std::string snapshot_url = "http://" + camera_ip + "/ctrl/snapshot";
+        std::string snapshot_url = "http://" + camera_ip + "/snapshot";
         std::string filename = "temp_snapshot.jpg";
         
         std::cout << "🔍 Trying to capture snapshot..." << std::endl;
