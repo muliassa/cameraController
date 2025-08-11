@@ -177,25 +177,72 @@ public:
         
         return response;
     }
-
-    // Just download and save, analyze file externally
+    
     bool captureSnapshotToFile() {
         std::string snapshot_url = "http://" + camera_ip + "/ctrl/snapshot";
         std::string filename = "temp_snapshot.jpg";
         
+        std::cout << "🔍 Trying to capture snapshot..." << std::endl;
+        std::cout << "   URL: " << snapshot_url << std::endl;
+        
         FILE *fp = fopen(filename.c_str(), "wb");
-        if (!fp) return false;
+        if (!fp) {
+            std::cout << "❌ Failed to create file: " << filename << std::endl;
+            return false;
+        }
         
         CURL *curl = curl_easy_init();
+        if (!curl) {
+            std::cout << "❌ Failed to initialize CURL" << std::endl;
+            fclose(fp);
+            return false;
+        }
+        
         curl_easy_setopt(curl, CURLOPT_URL, snapshot_url.c_str());
         curl_easy_setopt(curl, CURLOPT_WRITEDATA, fp);
+        curl_easy_setopt(curl, CURLOPT_TIMEOUT, 10L);
+        curl_easy_setopt(curl, CURLOPT_VERBOSE, 1L);  // Add verbose output
         
+        std::cout << "📡 Sending request..." << std::endl;
         CURLcode res = curl_easy_perform(curl);
+        
+        // Get response info
+        long response_code;
+        curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &response_code);
+        
         curl_easy_cleanup(curl);
         fclose(fp);
         
-        return (res == CURLE_OK);
+        std::cout << "📊 Response code: " << response_code << std::endl;
+        std::cout << "📊 CURL result: " << curl_easy_strerror(res) << std::endl;
+        
+        // Check file size
+        struct stat st;
+        if (stat(filename.c_str(), &st) == 0) {
+            std::cout << "📊 File size: " << st.st_size << " bytes" << std::endl;
+        }
+        
+        return (res == CURLE_OK && response_code == 200);
     }
+
+    // Just download and save, analyze file externally
+    // bool captureSnapshotToFile() {
+    //     std::string snapshot_url = "http://" + camera_ip + "/ctrl/snapshot";
+    //     std::string filename = "temp_snapshot.jpg";
+        
+    //     FILE *fp = fopen(filename.c_str(), "wb");
+    //     if (!fp) return false;
+        
+    //     CURL *curl = curl_easy_init();
+    //     curl_easy_setopt(curl, CURLOPT_URL, snapshot_url.c_str());
+    //     curl_easy_setopt(curl, CURLOPT_WRITEDATA, fp);
+        
+    //     CURLcode res = curl_easy_perform(curl);
+    //     curl_easy_cleanup(curl);
+    //     fclose(fp);
+        
+    //     return (res == CURLE_OK);
+    // }
 
     ExposureMetrics analyzeExposure(const cv::Mat& frame) {
         ExposureMetrics metrics;
