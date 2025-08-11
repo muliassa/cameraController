@@ -92,7 +92,44 @@ public:
             return false;
         }
         
-        return setupDecoder();
+        std::cout << "✅ Stream detection and decoder setup complete" << std::endl;
+        return true;
+    }
+    
+    bool setupDecoderForStream() {
+        std::cout << "🔧 Setting up H.264 decoder for stream #" << video_stream_index << "..." << std::endl;
+        
+        // Create H.264 decoder directly
+        codec = avcodec_find_decoder(AV_CODEC_ID_H264);
+        if (!codec) {
+            std::cout << "❌ H.264 codec not available" << std::endl;
+            return false;
+        }
+        
+        std::cout << "✅ Found H.264 codec: " << codec->name << std::endl;
+        
+        // Allocate codec context
+        codec_ctx = avcodec_alloc_context3(codec);
+        if (!codec_ctx) {
+            std::cout << "❌ Failed to allocate codec context" << std::endl;
+            return false;
+        }
+        
+        // Set minimal required parameters
+        codec_ctx->codec_type = AVMEDIA_TYPE_VIDEO;
+        codec_ctx->codec_id = AV_CODEC_ID_H264;
+        
+        // Open the codec - it will auto-detect parameters from the stream
+        int ret = avcodec_open2(codec_ctx, codec, nullptr);
+        if (ret < 0) {
+            char errbuf[AV_ERROR_MAX_STRING_SIZE];
+            av_make_error_string(errbuf, AV_ERROR_MAX_STRING_SIZE, ret);
+            std::cout << "❌ Failed to open H.264 codec: " << errbuf << std::endl;
+            return false;
+        }
+        
+        std::cout << "✅ H.264 decoder ready (parameters will be detected from stream)" << std::endl;
+        return true;
     }
     
     bool findVideoStreamManually() {
@@ -189,6 +226,14 @@ public:
         
         if (video_stream_index >= 0) {
             std::cout << "✅ Video stream identified: #" << video_stream_index << std::endl;
+            
+            // Set up decoder immediately after identifying the stream
+            if (!setupDecoderForStream()) {
+                std::cout << "❌ Failed to setup decoder for identified stream" << std::endl;
+                video_stream_index = -1;
+                return false;
+            }
+            
             return true;
         }
         
@@ -222,28 +267,30 @@ public:
         }
         
         AVStream *video_stream = format_ctx->streams[video_stream_index];
-        if (!video_stream || !video_stream->codecpar) {
-            std::cout << "❌ Invalid video stream or codec parameters" << std::endl;
+        if (!video_stream) {
+            std::cout << "❌ Invalid video stream" << std::endl;
             return false;
         }
         
+        // Try to use existing codecpar if available
         AVCodecParameters *codec_params = video_stream->codecpar;
+        if (codec_params) {
+            std::cout << "📊 Stream codecpar info:" << std::endl;
+            std::cout << "   Codec ID: " << codec_params->codec_id << std::endl;
+            std::cout << "   Codec type: " << codec_params->codec_type << std::endl;
+            std::cout << "   Width: " << codec_params->width << std::endl;
+            std::cout << "   Height: " << codec_params->height << std::endl;
+        }
         
-        std::cout << "📊 Stream info:" << std::endl;
-        std::cout << "   Codec ID: " << codec_params->codec_id << std::endl;
-        std::cout << "   Codec type: " << codec_params->codec_type << std::endl;
-        std::cout << "   Width: " << codec_params->width << std::endl;
-        std::cout << "   Height: " << codec_params->height << std::endl;
-        
-        // Find decoder
-        codec = avcodec_find_decoder(codec_params->codec_id);
+        // For H.264, try to create decoder directly
+        std::cout << "🎯 Attempting H.264 decoder setup..." << std::endl;
+        codec = avcodec_find_decoder(AV_CODEC_ID_H264);
         if (!codec) {
-            std::cout << "❌ Codec not found for ID: " << codec_params->codec_id << std::endl;
-            std::cout << "   Codec name: " << avcodec_get_name(codec_params->codec_id) << std::endl;
+            std::cout << "❌ H.264 codec not found" << std::endl;
             return false;
         }
         
-        std::cout << "✅ Found codec: " << codec->name << std::endl;
+        std::cout << "✅ Found H.264 codec: " << codec->name << std::endl;
         
         // Allocate codec context
         codec_ctx = avcodec_alloc_context3(codec);
@@ -252,17 +299,26 @@ public:
             return false;
         }
         
-        // Copy codec parameters - add error checking
-        int ret = avcodec_parameters_to_context(codec_ctx, codec_params);
-        if (ret < 0) {
-            char errbuf[AV_ERROR_MAX_STRING_SIZE];
-            av_make_error_string(errbuf, AV_ERROR_MAX_STRING_SIZE, ret);
-            std::cout << "❌ Failed to copy codec parameters: " << errbuf << std::endl;
-            return false;
+        // Set basic parameters manually for H.264
+        codec_ctx->codec_type = AVMEDIA_TYPE_VIDEO;
+        codec_ctx->codec_id = AV_CODEC_ID_H264;
+        
+        // If we have codec parameters, use them
+        if (codec_params && codec_params->width > 0 && codec_params->height > 0) {
+            std::cout << "📋 Using existing codec parameters" << std::endl;
+            int ret = avcodec_parameters_to_context(codec_ctx, codec_params);
+            if (ret < 0) {
+                char errbuf[AV_ERROR_MAX_STRING_SIZE];
+                av_make_error_string(errbuf, AV_ERROR_MAX_STRING_SIZE, ret);
+                std::cout << "⚠️ Failed to copy codec parameters: " << errbuf << std::endl;
+                // Continue anyway - decoder might auto-detect
+            }
+        } else {
+            std::cout << "⚠️ No codec parameters available, decoder will auto-detect" << std::endl;
         }
         
-        // Open codec with error checking
-        ret = avcodec_open2(codec_ctx, codec, nullptr);
+        // Try to open codec
+        int ret = avcodec_open2(codec_ctx, codec, nullptr);
         if (ret < 0) {
             char errbuf[AV_ERROR_MAX_STRING_SIZE];
             av_make_error_string(errbuf, AV_ERROR_MAX_STRING_SIZE, ret);
@@ -270,10 +326,21 @@ public:
             return false;
         }
         
-        std::cout << "✅ Decoder ready" << std::endl;
-        std::cout << "   Resolution: " << codec_ctx->width << "x" << codec_ctx->height << std::endl;
+        std::cout << "✅ Decoder opened successfully" << std::endl;
         std::cout << "   Codec: " << codec->name << std::endl;
-        std::cout << "   Pixel format: " << av_get_pix_fmt_name(codec_ctx->pix_fmt) << std::endl;
+        
+        // Dimensions might not be available until first frame
+        if (codec_ctx->width > 0 && codec_ctx->height > 0) {
+            std::cout << "   Resolution: " << codec_ctx->width << "x" << codec_ctx->height << std::endl;
+        } else {
+            std::cout << "   Resolution: Will be determined from first frame" << std::endl;
+        }
+        
+        if (codec_ctx->pix_fmt != AV_PIX_FMT_NONE) {
+            std::cout << "   Pixel format: " << av_get_pix_fmt_name(codec_ctx->pix_fmt) << std::endl;
+        } else {
+            std::cout << "   Pixel format: Will be determined from first frame" << std::endl;
+        }
         
         return true;
     }
