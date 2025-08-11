@@ -97,7 +97,7 @@ public:
         
         // Test camera connection
         if (!testCameraConnection()) {
-            throw std::runtime_error("Failed to connect to ZCAM at " + camera_ip);
+            throw runtime_error("Failed to connect to ZCAM at " + camera_ip);
         }
         
         // Initialize RTSP stream
@@ -684,7 +684,8 @@ public:
             displayFrameWithInfo(frame, metrics);
             
             // Check for user input
-            char key = cv::waitKey(1000) & 0xFF;
+            // char key = cv::waitKey(1000) & 0xFF;
+            char key = 0;
             if (key == 'q') {
                 break;
             } else if (key == 's') {
