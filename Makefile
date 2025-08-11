@@ -5,13 +5,12 @@ CXX = g++
 BUILD_DIR = build
 
 # Source files - add only the needed SDK implementation files
-SOURCES = controller.cpp 
+SOURCES = zcam_ffmpeg.cpp 
 
 TARGET = $(BUILD_DIR)/cameraController
 
 # Include directories
 INCLUDES = 	-Iincludes \
-			-I/usr/include/opencv4 \
 			-I/usr/include/x86_64-linux-gnu \
 			-I/usr/include/jsoncpp
 
