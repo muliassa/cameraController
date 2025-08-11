@@ -10,7 +10,8 @@ SOURCES = controller.cpp
 TARGET = $(BUILD_DIR)/cameraController
 
 # Include directories
-INCLUDES = -Iincludes 
+INCLUDES = 	-Iincludes \
+			-I/usr/include/opencv4
 
 # Library directories
 LIB_DIRS = 
