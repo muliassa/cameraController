@@ -1035,14 +1035,14 @@ int main(int argc, char* argv[]) {
         auto autoAdjust = controller.getAutoAdjustEnabled();
 
         // Get initial camera settings
-        if (auto_adjust) {
+        if (autoAdjust) {
             controller.getCurrentCameraSettings();
         }
         
         std::cout << "\n🎬 Starting exposure monitoring with auto-control..." << std::endl;
         std::cout << "📊 Target brightness: " << camera_state.target_brightness << "/255" << std::endl;
         std::cout << "⏱️  Analysis interval: 15 seconds" << std::endl;
-        std::cout << "🤖 Auto-adjust: " << (auto_adjust ? "ENABLED" : "DISABLED") << std::endl;
+        std::cout << "🤖 Auto-adjust: " << (autoAdjust ? "ENABLED" : "DISABLED") << std::endl;
         std::cout << "🎚️ Confidence threshold: " << (confidence_threshold * 100) << "%" << std::endl;
         std::cout << "Press Ctrl+C to stop\n" << std::endl;
         
