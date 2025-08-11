@@ -922,41 +922,63 @@ public:
         return totalSize;
     }
 
-    HTTPResponse curlHTTPRequest(const std::string& endpoint, const string& method = "GET", const std::string& data = "") {
-     
-        cout << "curlHTTPRequest:" << endpoint << endl;
-
+    HTTPResponse curlHTTPRequest(const std::string& endpoint, const std::string& method = "GET", const std::string& data = "") {
+        std::cout << "🌐 HTTP Request: " << endpoint << std::endl;
+        
         HTTPResponse response;
-        response.success = false;
-        response.response_code = 0;
         
-        if (!curl) return response;
+        if (!curl) {
+            std::cout << "❌ CURL not initialized" << std::endl;
+            return response;
+        }
         
-        string url = http_base_url + endpoint;
+        std::string url = http_base_url + endpoint;
+        std::cout << "🔗 Full URL: " << url << std::endl;
         
+        // Reset curl handle
         curl_easy_reset(curl);
+        
+        // Set basic options
         curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
         curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback);
         curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response);
         curl_easy_setopt(curl, CURLOPT_TIMEOUT, 5L);
         curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, 3L);
+        curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
+        
+        // Disable SSL verification for local network
+        curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0L);
+        curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 0L);
+        
+        struct curl_slist *headers = nullptr;
         
         if (method == "POST") {
             curl_easy_setopt(curl, CURLOPT_POSTFIELDS, data.c_str());
             curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE, data.length());
             
-            struct curl_slist *headers = nullptr;
             headers = curl_slist_append(headers, "Content-Type: application/json");
             curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
         }
         
+        // Perform the request
         CURLcode res = curl_easy_perform(curl);
-     
-        cout << "CURLcod: " << res << endl;
-
+        
+        // Clean up headers
+        if (headers) {
+            curl_slist_free_all(headers);
+        }
+        
+        // Get response info
         curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &response.response_code);
         
+        std::cout << "📡 CURL Result: " << res << " | HTTP Code: " << response.response_code << std::endl;
+        std::cout << "📄 Response: " << response.data.substr(0, 200) << std::endl;
+        
         response.success = (res == CURLE_OK && response.response_code == 200);
+        
+        if (!response.success) {
+            std::cout << "❌ Request failed - CURL: " << curl_easy_strerror(res) << std::endl;
+        }
         
         return response;
     }
