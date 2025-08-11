@@ -19,6 +19,8 @@ extern "C" {
 #include <libswscale/swscale.h>
 }
 
+using namespace std;
+
 struct ExposureMetrics {
 
     double mean_brightness;
@@ -72,7 +74,11 @@ struct LogEntry {
     double sun_factor;
 };
 
-using namespace std;
+struct HTTPResponse {
+    string data;
+    long response_code;
+    bool success;
+};
 
 class ZCAMFFmpegController {
 private:
