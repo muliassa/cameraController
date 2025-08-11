@@ -12,6 +12,8 @@
 #include <sstream>
 #include <algorithm>
 #include <string>
+#include <sys/stat.h>
+#include <unistd.h>
 
 using namespace std;
 using namespace cv;
