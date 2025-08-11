@@ -132,14 +132,20 @@ public:
         std::cout << "✅ RTSP connection established" << std::endl;
         
         // Find stream information
-        if (avformat_find_stream_info(format_ctx, nullptr) < 0) {
-            std::cout << "❌ Failed to find stream info" << std::endl;
+        std::cout << "🔍 Analyzing stream info..." << std::endl;
+        format_ctx->max_analyze_duration = 1000000; // 1 second timeout
+        int ret_info = avformat_find_stream_info(format_ctx, nullptr);
+        if (ret_info < 0) {
+            char errbuf[AV_ERROR_MAX_STRING_SIZE];
+            av_make_error_string(errbuf, AV_ERROR_MAX_STRING_SIZE, ret_info);
+            std::cout << "❌ Failed to find stream info: " << errbuf << std::endl;
             return false;
         }
-        
+
         // Find video stream
         for (unsigned int i = 0; i < format_ctx->nb_streams; i++) {
-            if (format_ctx->streams[i]->codecpar->codec_type == AVMEDIA_TYPE_VIDEO) {
+            if (format_ctx->streams[i] && format_ctx->streams[i]->codecpar && 
+                format_ctx->streams[i]->codecpar->codec_type == AVMEDIA_TYPE_VIDEO) {
                 video_stream_index = i;
                 break;
             }
@@ -524,7 +530,7 @@ public:
 };
 
 int main(int argc, char* argv[]) {
-    
+
     std::string camera_ip = "192.168.150.201";
     
     if (argc > 1) {
