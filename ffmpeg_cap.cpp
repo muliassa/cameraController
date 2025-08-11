@@ -59,6 +59,21 @@ private:
     
     double target_brightness = 128.0;
     double brightness_tolerance = 15.0;
+    
+    // ZCAM E2 parameter ranges
+    vector<int> iso_values = {100, 125, 160, 200, 250, 320, 400, 500, 640, 800, 1000, 1250, 1600, 2000, 2500, 3200, 4000, 5000, 6400, 8000, 10000, 12800};
+    vector<int> native_iso_values = {500, 2500}; // Dual native ISO for E2
+    pair<double, double> ev_range = {-3.0, 3.0};
+    vector<string> aperture_values = {"1.4", "1.6", "1.8", "2.0", "2.2", "2.5", "2.8", "3.2", "3.5", "4.0", "4.5", "5.0", "5.6", "6.3", "7.1", "8.0", "9.0", "10", "11", "13", "14", "16"};
+    
+    // Current settings
+    int current_iso = 500;
+    double current_ev = 0.0;
+    string current_aperture = "5.6";
+    int current_shutter_angle = 180;
+    
+    // History for learning
+    std::vector<LogEntry> exposure_history;
 
 public:
     ZCAMFFmpegController(const std::string& camera_ip) {
@@ -179,6 +194,120 @@ public:
         }
         
         return std::max(0.0, std::min(100.0, score));
+    }
+    
+    int findClosestISO(int target_iso) {
+        auto it = std::lower_bound(iso_values.begin(), iso_values.end(), target_iso);
+        if (it == iso_values.end()) return iso_values.back();
+        if (it == iso_values.begin()) return iso_values.front();
+        
+        int upper = *it;
+        int lower = *(--it);
+        
+        return (target_iso - lower < upper - target_iso) ? lower : upper;
+    }
+    
+    string findClosestAperture(double target_f) {
+        double min_diff = std::numeric_limits<double>::max();
+        std::string closest = aperture_values[0];
+        
+        for (const auto& f_str : aperture_values) {
+            double f_val = std::stod(f_str);
+            double diff = std::abs(f_val - target_f);
+            if (diff < min_diff) {
+                min_diff = diff;
+                closest = f_str;
+            }
+        }
+        
+        return closest;
+    }
+    
+    ZCAMSettings suggestCameraSettings(const ExposureMetrics& metrics) {
+        ZCAMSettings settings;
+        double brightness_error = metrics.mean_brightness - target_brightness;
+        double sun_factor = getSunAngleFactor();
+        
+        // Start with current settings
+        settings.iso = current_iso;
+        settings.exposure_compensation = current_ev;
+        settings.aperture = current_aperture;
+        settings.shutter_angle = current_shutter_angle;
+        
+        // ISO adjustment logic
+        if (metrics.mean_brightness < target_brightness - brightness_tolerance) {
+            // Too dark - increase ISO (prefer native ISO values)
+            int target_iso = static_cast<int>(current_iso * 1.6);
+            
+            // Prefer native ISO values when possible
+            if (target_iso >= 2500) {
+                settings.iso = 2500; // High native ISO
+            } else if (target_iso >= 500) {
+                // Choose between native ISOs or find closest
+                if (std::abs(target_iso - 500) < std::abs(target_iso - 2500)) {
+                    settings.iso = 500;
+                } else {
+                    settings.iso = findClosestISO(target_iso);
+                }
+            } else {
+                settings.iso = findClosestISO(target_iso);
+            }
+            
+        } else if (metrics.mean_brightness > target_brightness + brightness_tolerance) {
+            // Too bright - decrease ISO
+            int target_iso = static_cast<int>(current_iso / 1.4);
+            
+            if (target_iso <= 500) {
+                settings.iso = 500; // Low native ISO
+            } else {
+                settings.iso = findClosestISO(target_iso);
+            }
+        }
+        
+        // EV compensation for fine tuning
+        if (metrics.clipped_highlights > 5.0) {
+            settings.exposure_compensation = std::max(current_ev - 0.5, ev_range.first);
+        } else if (metrics.clipped_shadows > 10.0 && metrics.mean_brightness < 100.0) {
+            settings.exposure_compensation = std::min(current_ev + 0.3, ev_range.second);
+        }
+        
+        // Aperture adjustment based on lighting and depth of field needs
+        double current_f = stod(current_aperture);
+        if (sun_factor > 0.8) {
+            // Bright daylight - smaller aperture for sharpness and surf detail
+            settings.aperture = findClosestAperture(std::min(8.0, current_f + 1.0));
+        } else if (sun_factor < 0.3) {
+            // Low light - wider aperture
+            settings.aperture = findClosestAperture(std::max(2.8, current_f - 1.0));
+        }
+        
+        // Shutter angle for surf motion (180° is standard for natural motion)
+        if (sun_factor > 0.6) {
+            settings.shutter_angle = 180; // Standard for good motion blur
+        } else {
+            settings.shutter_angle = 270; // Wider for more light in low conditions
+        }
+        
+        settings.reasoning = getAdjustmentReasoning(brightness_error, metrics, sun_factor);
+        
+        return settings;
+    }
+    
+    double getSunAngleFactor() {
+        auto now = std::chrono::system_clock::now();
+        auto time_t = std::chrono::system_clock::to_time_t(now);
+        auto tm = *std::localtime(&time_t);
+        
+        double hour = tm.tm_hour + tm.tm_min / 60.0;
+        
+        if (hour >= 6.0 && hour <= 22.0) { // 6am to 10pm surf recording
+            double solar_noon = 13.0; // Adjust for your timezone/location
+            double hour_angle = std::abs(hour - solar_noon);
+            double sun_elevation = 90.0 - (hour_angle * 12.0); // Adjusted for longer day
+            return std::max(0.0, sun_elevation / 90.0);
+        } else {
+            return 0.1; // Very low light
+        }
     }
     
     bool connect() {
@@ -648,6 +777,22 @@ int main(int argc, char* argv[]) {
                 std::cout << "📊 Highlights clipped: " << metrics.clipped_highlights << "%" << std::endl;
                 std::cout << "📊 Shadows clipped: " << metrics.clipped_shadows << "%" << std::endl;
                 std::cout << "📊 Exposure score: " << metrics.exposure_score << "/100" << std::endl;
+                
+                Get camera adjustment suggestions
+                ZCAMSettings suggested = controller.suggestCameraSettings(metrics);
+                std::cout << "💡 Analysis: " << suggested.reasoning << std::endl;
+                
+                if (suggested.iso != controller.getCurrentISO() || 
+                    std::abs(suggested.exposure_compensation - controller.getCurrentEV()) > 0.1) {
+                    std::cout << "🔧 Suggested ZCAM adjustments:" << std::endl;
+                    std::cout << "   ISO: " << controller.getCurrentISO() << " → " << suggested.iso;
+                    if (suggested.iso == 500 || suggested.iso == 2500) {
+                        std::cout << " (native)";
+                    }
+                    std::cout << std::endl;
+                    std::cout << "   EV: " << controller.getCurrentEV() << " → " << suggested.exposure_compensation << std::endl;
+                    std::cout << "   Aperture: f/" << controller.getCurrentAperture() << " → f/" << suggested.aperture << std::endl;
+                }
             
         } else {
             std::cout << "\n❌ FAILED to capture frame" << std::endl;
