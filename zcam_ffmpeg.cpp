@@ -534,113 +534,92 @@ public:
 };
 
 int main(int argc, char* argv[]) {
-    std::string camera_ip = "192.168.150.201";
+    // std::string camera_ip = "192.168.150.201";
     
-    if (argc > 1) {
-        camera_ip = argv[1];
-    }
+    // if (argc > 1) {
+    //     camera_ip = argv[1];
+    // }
     
-    try {
-        std::cout << "=== ZCAM E2-F8 FFmpeg Controller ===" << std::endl;
-        std::cout << "Using native FFmpeg C API (no OpenCV GDAL conflicts)" << std::endl;
+    // try {
+    //     std::cout << "=== ZCAM E2-F8 FFmpeg Controller ===" << std::endl;
+    //     std::cout << "Using native FFmpeg C API (no OpenCV GDAL conflicts)" << std::endl;
         
-        ZCAMFFmpegController controller(camera_ip);
+    //     ZCAMFFmpegController controller(camera_ip);
         
-        // Initialize RTSP stream
-        if (!controller.initializeStream()) {
-            std::cout << "❌ Failed to initialize RTSP stream" << std::endl;
-            return -1;
-        }
+    //     // Initialize RTSP stream
+    //     if (!controller.initializeStream()) {
+    //         std::cout << "❌ Failed to initialize RTSP stream" << std::endl;
+    //         return -1;
+    //     }
         
-        std::cout << "\n🎬 Starting live exposure monitoring..." << std::endl;
-        std::cout << "Press Ctrl+C to stop\n" << std::endl;
+    //     std::cout << "\n🎬 Starting live exposure monitoring..." << std::endl;
+    //     std::cout << "Press Ctrl+C to stop\n" << std::endl;
         
-        int analysis_count = 0;
+    //     int analysis_count = 0;
         
-        while (true) {
-            analysis_count++;
+    //     while (true) {
+    //         analysis_count++;
             
-            auto now = std::chrono::system_clock::now();
-            auto time_t = std::chrono::system_clock::to_time_t(now);
-            auto tm = *std::localtime(&time_t);
+    //         auto now = std::chrono::system_clock::now();
+    //         auto time_t = std::chrono::system_clock::to_time_t(now);
+    //         auto tm = *std::localtime(&time_t);
             
-            std::cout << "\n--- Analysis #" << analysis_count 
-                     << " (" << std::put_time(&tm, "%H:%M:%S") << ") ---" << std::endl;
+    //         std::cout << "\n--- Analysis #" << analysis_count 
+    //                  << " (" << std::put_time(&tm, "%H:%M:%S") << ") ---" << std::endl;
             
-            // Capture frame from RTSP
-            std::vector<uint8_t> rgb_data;
-            int width, height;
+    //         // Capture frame from RTSP
+    //         std::vector<uint8_t> rgb_data;
+    //         int width, height;
             
-            if (controller.captureFrame(rgb_data, width, height)) {
-                // Analyze exposure
-                ExposureMetrics metrics = controller.analyzeExposure(rgb_data, width, height);
+    //         if (controller.captureFrame(rgb_data, width, height)) {
+    //             // Analyze exposure
+    //             ExposureMetrics metrics = controller.analyzeExposure(rgb_data, width, height);
                 
-                std::cout << "📊 Brightness: " << std::fixed << std::setprecision(1) 
-                         << metrics.mean_brightness << "/255";
+    //             std::cout << "📊 Brightness: " << std::fixed << std::setprecision(1) 
+    //                      << metrics.mean_brightness << "/255";
                 
-                if (metrics.mean_brightness < 100) {
-                    std::cout << " (DARK 🌙)";
-                } else if (metrics.mean_brightness > 180) {
-                    std::cout << " (BRIGHT ☀️)";
-                } else {
-                    std::cout << " (GOOD ✅)";
-                }
-                std::cout << std::endl;
+    //             if (metrics.mean_brightness < 100) {
+    //                 std::cout << " (DARK 🌙)";
+    //             } else if (metrics.mean_brightness > 180) {
+    //                 std::cout << " (BRIGHT ☀️)";
+    //             } else {
+    //                 std::cout << " (GOOD ✅)";
+    //             }
+    //             std::cout << std::endl;
                 
-                std::cout << "📊 Contrast: " << metrics.contrast << std::endl;
-                std::cout << "📊 Highlights clipped: " << metrics.clipped_highlights << "%" << std::endl;
-                std::cout << "📊 Shadows clipped: " << metrics.clipped_shadows << "%" << std::endl;
-                std::cout << "📊 Exposure score: " << metrics.exposure_score << "/100" << std::endl;
+    //             std::cout << "📊 Contrast: " << metrics.contrast << std::endl;
+    //             std::cout << "📊 Highlights clipped: " << metrics.clipped_highlights << "%" << std::endl;
+    //             std::cout << "📊 Shadows clipped: " << metrics.clipped_shadows << "%" << std::endl;
+    //             std::cout << "📊 Exposure score: " << metrics.exposure_score << "/100" << std::endl;
                 
-                // Get camera adjustment suggestions
-                ZCAMSettings suggested = controller.suggestCameraSettings(metrics);
-                std::cout << "💡 Analysis: " << suggested.reasoning << std::endl;
+    //             // Get camera adjustment suggestions
+    //             ZCAMSettings suggested = controller.suggestCameraSettings(metrics);
+    //             std::cout << "💡 Analysis: " << suggested.reasoning << std::endl;
                 
-                if (suggested.iso != controller.getCurrentISO() || 
-                    std::abs(suggested.exposure_compensation - controller.getCurrentEV()) > 0.1) {
-                    std::cout << "🔧 Suggested ZCAM adjustments:" << std::endl;
-                    std::cout << "   ISO: " << controller.getCurrentISO() << " → " << suggested.iso;
-                    if (suggested.iso == 500 || suggested.iso == 2500) {
-                        std::cout << " (native)";
-                    }
-                    std::cout << std::endl;
-                    std::cout << "   EV: " << controller.getCurrentEV() << " → " << suggested.exposure_compensation << std::endl;
-                    std::cout << "   Aperture: f/" << controller.getCurrentAperture() << " → f/" << suggested.aperture << std::endl;
-                }
+    //             if (suggested.iso != controller.getCurrentISO() || 
+    //                 std::abs(suggested.exposure_compensation - controller.getCurrentEV()) > 0.1) {
+    //                 std::cout << "🔧 Suggested ZCAM adjustments:" << std::endl;
+    //                 std::cout << "   ISO: " << controller.getCurrentISO() << " → " << suggested.iso;
+    //                 if (suggested.iso == 500 || suggested.iso == 2500) {
+    //                     std::cout << " (native)";
+    //                 }
+    //                 std::cout << std::endl;
+    //                 std::cout << "   EV: " << controller.getCurrentEV() << " → " << suggested.exposure_compensation << std::endl;
+    //                 std::cout << "   Aperture: f/" << controller.getCurrentAperture() << " → f/" << suggested.aperture << std::endl;
+    //             }
                 
-            } else {
-                std::cout << "❌ Failed to capture frame, retrying..." << std::endl;
-            }
+    //         } else {
+    //             std::cout << "❌ Failed to capture frame, retrying..." << std::endl;
+    //         }
             
-            // Wait before next analysis
-            std::this_thread::sleep_for(std::chrono::seconds(15));
-        }
+    //         // Wait before next analysis
+    //         std::this_thread::sleep_for(std::chrono::seconds(15));
+    //     }
         
-        return 0;
+    //     return 0;
         
-    } catch (const std::exception& e) {
-        std::cerr << "Error: " << e.what() << std::endl;
-        return -1;
-    }
+    // } catch (const std::exception& e) {
+    //     std::cerr << "Error: " << e.what() << std::endl;
+    //     return -1;
+    // }
 }
-
-/*
-COMPILATION:
-sudo apt install libavformat-dev libavcodec-dev libavutil-dev libswscale-dev libcurl4-openssl-dev libjsoncpp-dev
-
-g++ -std=c++17 -O2 zcam_ffmpeg.cpp \
-    -lavformat -lavcodec -lavutil -lswscale \
-    -lcurl -ljsoncpp -pthread \
-    -o zcam_ffmpeg_controller
-
-USAGE:
-./zcam_ffmpeg_controller 192.168.150.201
-
-This version:
-✅ Uses native FFmpeg C API (no OpenCV/GDAL conflicts)
-✅ Properly handles ZCAM RTSP with TCP transport  
-✅ Real-time exposure analysis from live stream
-✅ ZCAM-specific camera setting suggestions
-✅ Dual native ISO optimization (500/2500)
-✅ Surf-specific exposure recommendations
-*/
