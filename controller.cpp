@@ -755,6 +755,12 @@ public:
         return success;
     }
     
+    // Getters for current settings
+    int getCurrentISO() const { return current_iso; }
+    double getCurrentEV() const { return current_ev; }
+    std::string getCurrentAperture() const { return current_aperture; }
+    int getCurrentShutterAngle() const { return current_shutter_angle; }
+    
     void cleanup() {
         if (sws_ctx) {
             sws_freeContext(sws_ctx);
