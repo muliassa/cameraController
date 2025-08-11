@@ -894,6 +894,110 @@ public:
         video_stream_index = -1;
         std::cout << "🧹 Cleaned up" << std::endl;
     }
+
+    HTTPResponse curlHTTPRequest(const std::string& endpoint, const std::string& method = "GET", const std::string& data = "") {
+     
+        HTTPResponse response;
+        response.success = false;
+        response.response_code = 0;
+        
+        if (!curl) return response;
+        
+        std::string url = http_base_url + endpoint;
+        
+        curl_easy_reset(curl);
+        curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
+        curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback);
+        curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response);
+        curl_easy_setopt(curl, CURLOPT_TIMEOUT, 5L);
+        curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, 3L);
+        
+        if (method == "POST") {
+            curl_easy_setopt(curl, CURLOPT_POSTFIELDS, data.c_str());
+            curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE, data.length());
+            
+            struct curl_slist *headers = nullptr;
+            headers = curl_slist_append(headers, "Content-Type: application/json");
+            curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
+        }
+        
+        CURLcode res = curl_easy_perform(curl);
+        curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &response.response_code);
+        
+        response.success = (res == CURLE_OK && response.response_code == 200);
+        
+        return response;
+    }
+
+    bool getCurrentCameraSettings() {
+        std::cout << "🔍 Reading current ZCAM E8 Z2 settings..." << std::endl;
+        
+        // Get current ISO - using your working JS format
+        HTTPResponse iso_resp = curlHTTPRequest("/ctrl/get?k=iso");
+        if (iso_resp.success) {
+            Json::Value root;
+            Json::Reader reader;
+            if (reader.parse(iso_resp.data, root) && root.isMember("value")) {
+                std::string iso_str = root["value"].asString();
+                camera_state.current_iso = std::stoi(iso_str);
+                std::cout << "   📊 Current ISO: " << camera_state.current_iso << std::endl;
+            }
+        } else {
+            std::cout << "   ⚠️ Could not read ISO (HTTP " << iso_resp.response_code << ")" << std::endl;
+        }
+        
+        // Get white balance for context
+        HTTPResponse wb_resp = curlHTTPRequest("/ctrl/get?k=wb");
+        if (wb_resp.success) {
+            Json::Value root;
+            Json::Reader reader;
+            if (reader.parse(wb_resp.data, root) && root.isMember("value")) {
+                std::cout << "   📊 White Balance: " << root["value"].asString() << std::endl;
+            }
+        }
+        
+        // Get manual white balance if available
+        HTTPResponse mwb_resp = curlHTTPRequest("/ctrl/get?k=mwb");
+        if (mwb_resp.success) {
+            Json::Value root;
+            Json::Reader reader;
+            if (reader.parse(mwb_resp.data, root) && root.isMember("value")) {
+                std::cout << "   📊 Manual WB: " << root["value"].asString() << "K" << std::endl;
+            }
+        }
+        
+        // Get camera temperature
+        HTTPResponse temp_resp = curlHTTPRequest("/ctrl/temperature");
+        if (temp_resp.success) {
+            Json::Value root;
+            Json::Reader reader;
+            if (reader.parse(temp_resp.data, root)) {
+                std::cout << "   🌡️ Camera Temp: " << temp_resp.data << std::endl;
+            }
+        }
+        
+        // Check recording status  
+        HTTPResponse rec_resp = curlHTTPRequest("/ctrl/get?k=rec");
+        if (rec_resp.success) {
+            Json::Value root;
+            Json::Reader reader;
+            if (reader.parse(rec_resp.data, root) && root.isMember("value")) {
+                std::string rec_status = root["value"].asString();
+                std::cout << "   📹 Recording: " << (rec_status == "on" ? "🔴 RECORDING" : "⏸️ STANDBY") << std::endl;
+            }
+        }
+        
+        // Determine profile based on your JS logic
+        std::string profile = "custom";
+        if (camera_state.current_iso == 400) profile = "day";
+        else if (camera_state.current_iso == 51200) profile = "night";
+        std::cout << "   🎬 Profile: " << profile << std::endl;
+        
+        return iso_resp.success;
+    }
+
+
+
 };
 
 // Simple test of just the frame capture
@@ -905,6 +1009,7 @@ int main(int argc, char* argv[]) {
     }
     
     try {
+
         ZCAMFFmpegController controller(camera_ip);
         
         // Connect to camera
@@ -912,6 +1017,18 @@ int main(int argc, char* argv[]) {
             std::cout << "❌ Failed to connect to camera" << std::endl;
             return -1;
         }
+
+        // Get initial camera settings
+        if (auto_adjust_enabled) {
+            controller.getCurrentCameraSettings();
+        }
+        
+        std::cout << "\n🎬 Starting exposure monitoring with auto-control..." << std::endl;
+        std::cout << "📊 Target brightness: " << camera_state.target_brightness << "/255" << std::endl;
+        std::cout << "⏱️  Analysis interval: 15 seconds" << std::endl;
+        std::cout << "🤖 Auto-adjust: " << (auto_adjust_enabled ? "ENABLED" : "DISABLED") << std::endl;
+        std::cout << "🎚️ Confidence threshold: " << (confidence_threshold * 100) << "%" << std::endl;
+        std::cout << "Press Ctrl+C to stop\n" << std::endl;
         
         // Try to capture ONE frame
         std::vector<uint8_t> rgb_data;
