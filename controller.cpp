@@ -88,17 +88,15 @@ private:
     CURL *curl;
 
     CameraState camera_state;
-    
+    ExposureMetrics exposure_metrics;
+
     // FFmpeg components
     AVFormatContext *format_ctx = nullptr;
     AVCodecContext *codec_ctx = nullptr;
     const AVCodec *codec = nullptr;  // Use const AVCodec* for newer FFmpeg versions
     SwsContext *sws_ctx = nullptr;
     int video_stream_index = -1;
-    
-    double target_brightness = 128.0;
-    double brightness_tolerance = 15.0;
-    
+        
     // ZCAM E2 parameter ranges
     vector<int> iso_values = {100, 125, 160, 200, 250, 320, 400, 500, 640, 800, 1000, 1250, 1600, 2000, 2500, 3200, 4000, 5000, 6400, 8000, 10000, 12800};
     vector<int> native_iso_values = {500, 2500}; // Dual native ISO for E2
@@ -141,6 +139,7 @@ public:
     }
     
     ExposureMetrics analyzeExposure(const std::vector<uint8_t>& rgb_data, int width, int height) {
+
         ExposureMetrics metrics;
         
         if (rgb_data.empty()) {
@@ -212,6 +211,8 @@ public:
             // Calculate exposure score
             metrics.exposure_score = calculateExposureScore(metrics);
         }
+
+        exposure_metrics = metrics;
         
         return metrics;
     }
@@ -896,6 +897,8 @@ public:
         nlohmann::json params;
         params["iso"] = camera_state.current_iso;
         params["iris"] = camera_state.current_iris;
+        params["target_brightness"] = camera_state.target_brightness;
+        params["mean_brightness"] = exposure_metrics.mean_brightness;
         return params;
     }
 
@@ -920,7 +923,7 @@ public:
         std::cout << "🧹 Cleaned up" << std::endl;
     }
 
-    Network::Response postRequest(const string& endpoint, nlohmann::json params) {
+    Network::Response postReport(const string& endpoint, nlohmann::json params) {
         Network network;
         return network.https_request(server, endpoint, http::verb::post, params);
     }
@@ -969,8 +972,6 @@ public:
         // } else {
         //     cout << "   ⚠️ Could not read EV (HTTP " << resp.status << ")" << endl;
         // }
-
-        postRequest("/api/caminfo", toJson());
         
         // Show available ISO options
         // if (root.isMember("opts") && root["opts"].isArray()) {
@@ -1058,9 +1059,7 @@ int main(int argc, char* argv[]) {
         auto autoAdjust = controller.getAutoAdjustEnabled();
 
         // Get initial camera settings
-        if (autoAdjust) {
-            controller.getCurrentCameraSettings();
-        }
+        controller.getCurrentCameraSettings();
 
         auto cameraState = controller.getCameraState();
         
@@ -1076,12 +1075,15 @@ int main(int argc, char* argv[]) {
         int width, height;
         
         if (controller.captureOneFrame(rgb_data, width, height)) {
+
             std::cout << "\n🎉 SUCCESS!" << std::endl;
             std::cout << "📊 Frame captured: " << width << "x" << height << std::endl;
             std::cout << "📊 RGB data size: " << rgb_data.size() << " bytes" << std::endl;
 
             // Analyze exposure
                 ExposureMetrics metrics = controller.analyzeExposure(rgb_data, width, height);
+
+                postReport("/api/caminfo", toJson());
                 
                 std::cout << "📊 Brightness: " << fixed << setprecision(1) 
                          << metrics.mean_brightness << "/255";
