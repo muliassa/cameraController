@@ -57,9 +57,14 @@ struct ZCAMSettings {
 struct CameraState {
     // Current settings (would be read from camera API)
     int current_iso = 500;
+    nlohmann::json iso_options;
+
     double current_iris = 10.0;
+    nlohmann::json iris_options;
+
     double current_ev = 0.0;
     string current_aperture = "5.6";
+    nlohmann::json ev_options;
 
     int current_shutter_angle = 180;
     nlohmann::json shutter_options;
@@ -892,17 +897,24 @@ public:
     std::string getCurrentAperture() const { return camera_state.current_aperture; }
     int getCurrentShutterAngle() const { return camera_state.current_shutter_angle; }
 
+    nlohmann::json getOptions() {
+        nlohmann::json options;
+        params["iso_options"] = camera_state.iso_options;
+        params["iris_options"] = camera_state.iris_options;
+        params["shutter_options"] = camera_state.shutter_options;
+        params["target_brightness"] = camera_state.target_brightness;
+        params["brightness_range"] = "112-144";
+        params["contrast_range"] = "25-60";
+    }
+
     nlohmann::json toJson() { 
         nlohmann::json params;
         params["iso"] = camera_state.current_iso;
         params["iris"] = camera_state.current_iris;
         params["shutter"] = camera_state.current_shutter_angle;
-        params["shutter_options"] = camera_state.shutter_options;
         params["mean_brightness"] = exposure_metrics.mean_brightness;
-        params["target_brightness"] = camera_state.target_brightness;
-        params["brightness_range"] = "112-144";
         params["contrast"] = exposure_metrics.contrast;
-        params["contrast_range"] = "25-60";
+        params["exposure_score"] = camera_state.exposure_score;
         return params;
     }
 
@@ -949,15 +961,14 @@ public:
         if (resp.status == 200) {
             if (resp.json.count("value") > 0) 
                 camera_state.current_iso = stoi(resp.json["value"].get<string>());
-            cout << "   📊 Current ISO: " << camera_state.current_iso << endl;
-        } else {
-            cout << "   ⚠️ Could not read ISO (HTTP " << resp.status << ")" << endl;
+            camera_state.iso_options = resp.json["opt"]; 
         }
 
         resp = getRequest("/ctrl/get?k=iris");
         if (resp.status == 200 && resp.json.count("value") > 0) {
             camera_state.current_aperture = resp.json["value"].get<string>();
             camera_state.current_iris = stod(camera_state.current_aperture); 
+            camera_state.iris_options = resp.json["opt"]; 
         }
 
         resp = getRequest("/ctrl/get?k=shutter_angle");
@@ -1144,6 +1155,7 @@ int main(int argc, char* argv[]) {
         monitorCamera(leftController);
 
         nlohmann::json params;
+        params["options"] = leftCamera.getOptions();
         params["LEFT"] = leftController.toJson(); 
         params["RIGHT"] = rightController.toJson(); 
         postReport("/api/caminfo", params);
