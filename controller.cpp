@@ -81,7 +81,6 @@ struct LogEntry {
 class ZCAMController {
 private:
 
-    string server;
     string camera_ip;
     string rtsp_url;
     string http_base_url;
@@ -115,8 +114,6 @@ public:
 
     ZCAMController(const string& camera_ip) {
 
-        server = "surfai.peocl.com";
-
         this->camera_ip = camera_ip;
 
         rtsp_url = "rtsp://" + camera_ip + "/live_stream";
@@ -128,8 +125,8 @@ public:
         #endif
         avformat_network_init();
         
-        std::cout << "🎥 ZCAM Simple Frame Capture" << std::endl;
-        std::cout << "📡 RTSP URL: " << rtsp_url << std::endl;
+        cout << "🎥 ZCAM Simple Frame Capture" << endl;
+        cout << "📡 RTSP URL: " << rtsp_url << endl;
 
     }
     
@@ -1105,10 +1102,12 @@ bool monitorCamera(ZCAMController& controller) {
         } else {
             std::cout << "\n❌ FAILED to capture frame" << std::endl;
             std::cout << "🔧 Check camera streaming and network connection" << std::endl;
-            return -1;
+            return false;
         }
         
-        std::cout << "\n✅ Test completed successfully!" << std::endl;
+        std::cout << "\n✅ Test completed successfully!" << endl;
+
+        return true;
 
 }
 
@@ -1125,11 +1124,9 @@ int main(int argc, char* argv[]) {
     try {
 
         ZCAMController rightController("192.168.150.201");
+        monitorCamera(rightController);
         
         ZCAMController leftController("192.168.150.202");
-
-        monitorCamera(rightController);
-
         monitorCamera(leftController);
 
         nlohmann::json params;
