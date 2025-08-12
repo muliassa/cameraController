@@ -938,7 +938,7 @@ public:
                 }               
             }
         } else {
-            std::cout << "   ⚠️ Could not read ISO (HTTP " << iso_resp.response_code << ")" << std::endl;
+            std::cout << "   ⚠️ Could not read ISO (HTTP " << iso_resp.status << ")" << std::endl;
         }
 
         // Show available ISO options
