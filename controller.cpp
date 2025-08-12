@@ -45,9 +45,9 @@ struct ExposureMetrics {
 struct ZCAMSettings {
     int iso;
     double exposure_compensation;
-    std::string aperture;
+    string aperture;
     int shutter_angle;
-    std::string reasoning;
+    string reasoning;
     
     // Quality indicators
     bool is_native_iso = false;
@@ -58,12 +58,12 @@ struct CameraState {
     // Current settings (would be read from camera API)
     int current_iso = 500;
     double current_ev = 0.0;
-    std::string current_aperture = "5.6";
+    string current_aperture = "5.6";
     int current_shutter_angle = 180;
     
     // Scene analysis
     double sun_factor = 0.5;
-    std::string scene_type = "unknown";
+    string scene_type = "unknown";
     
     // Targets
     double target_brightness = 128.0;
@@ -103,12 +103,6 @@ private:
     pair<double, double> ev_range = {-3.0, 3.0};
     vector<string> aperture_values = {"1.4", "1.6", "1.8", "2.0", "2.2", "2.5", "2.8", "3.2", "3.5", "4.0", "4.5", "5.0", "5.6", "6.3", "7.1", "8.0", "9.0", "10", "11", "13", "14", "16"};
     
-    // Current settings
-    int current_iso = 500;
-    double current_ev = 0.0;
-    string current_aperture = "5.6";
-    int current_shutter_angle = 180;
-
     // Control settings
     bool auto_adjust_enabled = true;
     double confidence_threshold = 0.6;  // Only apply changes if confidence > 60%
@@ -889,10 +883,10 @@ public:
     CameraState getCameraState() { return camera_state; }
     bool getAutoAdjustEnabled() { return auto_adjust_enabled; }
     double getConfidenceThreshold() { return confidence_threshold; }
-    int getCurrentISO() const { return current_iso; }
-    double getCurrentEV() const { return current_ev; }
-    std::string getCurrentAperture() const { return current_aperture; }
-    int getCurrentShutterAngle() const { return current_shutter_angle; }
+    int getCurrentISO() const { return camera_state.current_iso; }
+    double getCurrentEV() const { return camera_state.current_ev; }
+    std::string getCurrentAperture() const { return camera_state.current_aperture; }
+    int getCurrentShutterAngle() const { return camera_state.current_shutter_angle; }
     
     void cleanup() {
         if (sws_ctx) {
@@ -914,7 +908,7 @@ public:
         std::cout << "🧹 Cleaned up" << std::endl;
     }
 
-    Network::Response curlHTTPRequest(const string& endpoint, const string& method = "GET", const string& data = "") {
+    Network::Response getRequest(const string& endpoint, const string& method = "GET", const string& data = "") {
 
         std::cout << "🌐 HTTP Request: " << endpoint << std::endl;
 
@@ -928,16 +922,28 @@ public:
     }
 
     bool getCurrentCameraSettings() {
-        std::cout << "🔍 Reading current ZCAM E8 Z2 settings..." << std::endl;
+
+        cout << "🔍 Reading current ZCAM E8 Z2 settings..." << endl;
         
         // Get current ISO - using your working JS format
-        auto iso_resp = curlHTTPRequest("/ctrl/get?k=iso");
-        if (iso_resp.status == 200) {
-            if (iso_resp.json.count("value") > 0) 
-                camera_state.current_iso = stoi(iso_resp.json["value"].get<string>());
+        auto resp = getRequest("/ctrl/get?k=iso");
+        if (resp.status == 200) {
+            if (resp.json.count("value") > 0) 
+                camera_state.current_iso = stoi(resp.json["value"].get<string>());
             cout << "   📊 Current ISO: " << camera_state.current_iso << endl;
         } else {
-            cout << "   ⚠️ Could not read ISO (HTTP " << iso_resp.status << ")" << endl;
+            cout << "   ⚠️ Could not read ISO (HTTP " << resp.status << ")" << endl;
+        }
+
+        resp = getRequest("/ctrl/get?k=ev");
+        if (resp.status == 200) {
+            if (resp.json.count("value") > 0) {
+                auto ev_steps = stod(resp.json["value"].get<string>());
+                camera_state.current_ev = ev_steps / 10.0;  // Convert to actual EV                
+            }
+            cout << "   📊 Current EV: " << std::showpos << camera_state.current_ev << std::noshowpos << " (steps: " << ev_steps << ")" << std::endl;
+        } else {
+            cout << "   ⚠️ Could not read EV (HTTP " << resp.status << ")" << endl;
         }
 
         // Show available ISO options
@@ -949,13 +955,13 @@ public:
         //     std::cout << std::endl;
         // } else {
         //     std::cout << "   ❌ Unexpected ISO response format" << std::endl;
-        //     std::cout << "   Response: " << iso_resp.data << std::endl;
+        //     std::cout << "   Response: " << resp.data << std::endl;
         // }
 
-        return iso_resp.status == 200;
+        return resp.status == 200;
 
         // Get white balance for context
-        // auto wb_resp = curlHTTPRequest("/ctrl/get?k=wb");
+        // auto wb_resp = getRequest("/ctrl/get?k=wb");
         // if (wb_resp.success) {
         //     Json::Value root;
         //     Json::Reader reader;
@@ -965,7 +971,7 @@ public:
         // }
         
         // Get manual white balance if available
-        // auto mwb_resp = curlHTTPRequest("/ctrl/get?k=mwb");
+        // auto mwb_resp = getRequest("/ctrl/get?k=mwb");
         // if (mwb_resp.success) {
         //     Json::Value root;
         //     Json::Reader reader;
@@ -975,7 +981,7 @@ public:
         // }
         
         // Get camera temperature
-        // auto temp_resp = curlHTTPRequest("/ctrl/temperature");
+        // auto temp_resp = getRequest("/ctrl/temperature");
         // if (temp_resp.success) {
         //     Json::Value root;
         //     Json::Reader reader;
@@ -985,7 +991,7 @@ public:
         // }
         
         // Check recording status  
-        // auto rec_resp = curlHTTPRequest("/ctrl/get?k=rec");
+        // auto rec_resp = getRequest("/ctrl/get?k=rec");
         // if (rec_resp.success) {
         //     Json::Value root;
         //     Json::Reader reader;
@@ -995,13 +1001,7 @@ public:
         //     }
         // }
         
-        // Determine profile based on your JS logic
-        // std::string profile = "custom";
-        // if (camera_state.current_iso == 400) profile = "day";
-        // else if (camera_state.current_iso == 51200) profile = "night";
-        // std::cout << "   🎬 Profile: " << profile << std::endl;
-        
-        return iso_resp.status == 200;
+        return resp.status == 200;
     }
 
 
