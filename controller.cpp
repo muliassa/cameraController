@@ -962,14 +962,14 @@ public:
         if (resp.status == 200) {
             if (resp.json.count("value") > 0) 
                 camera_state.current_iso = stoi(resp.json["value"].get<string>());
-            camera_state.iso_options = resp.json["opt"]; 
+            camera_state.iso_options = resp.json["opts"]; 
         }
 
         resp = getRequest("/ctrl/get?k=iris");
         if (resp.status == 200 && resp.json.count("value") > 0) {
             camera_state.current_aperture = resp.json["value"].get<string>();
             camera_state.current_iris = stod(camera_state.current_aperture); 
-            camera_state.iris_options = resp.json["opt"]; 
+            camera_state.iris_options = resp.json["opts"]; 
         }
 
         resp = getRequest("/ctrl/get?k=shutter_angle");
