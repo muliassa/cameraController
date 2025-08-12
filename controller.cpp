@@ -57,6 +57,7 @@ struct ZCAMSettings {
 struct CameraState {
     // Current settings (would be read from camera API)
     int current_iso = 500;
+    double current_iris = 10.0;
     double current_ev = 0.0;
     string current_aperture = "5.6";
     int current_shutter_angle = 180;
@@ -80,6 +81,7 @@ struct LogEntry {
 class ZCAMFFmpegController {
 private:
 
+    string server;
     std::string camera_ip;
     std::string rtsp_url;
     string http_base_url;
@@ -114,6 +116,8 @@ private:
 public:
 
     ZCAMFFmpegController(const string& camera_ip) {
+
+        server = "surfai.peocl.com";
 
         this->camera_ip = camera_ip;
 
@@ -887,6 +891,14 @@ public:
     double getCurrentEV() const { return camera_state.current_ev; }
     std::string getCurrentAperture() const { return camera_state.current_aperture; }
     int getCurrentShutterAngle() const { return camera_state.current_shutter_angle; }
+
+    nlohmann::json toJson() { 
+        nlohmann::json params;
+        params["iso"] = camera_state.current_iso;
+        params["iris"] = camera_state.current_iris;
+        return params;
+    }
+
     
     void cleanup() {
         if (sws_ctx) {
@@ -906,6 +918,11 @@ public:
         
         video_stream_index = -1;
         std::cout << "🧹 Cleaned up" << std::endl;
+    }
+
+    Network::Response postRequest(const string& endpoint, json params) {
+        Network network;
+        auto response = network.https_request(camera_ip, endpoint, http::verb::post, params);
     }
 
     Network::Response getRequest(const string& endpoint, const string& method = "GET", const string& data = "") {
@@ -935,17 +952,25 @@ public:
             cout << "   ⚠️ Could not read ISO (HTTP " << resp.status << ")" << endl;
         }
 
-        resp = getRequest("/ctrl/get?k=ev");
-        if (resp.status == 200) {
-            double ev_steps = 0.0;
-            if (resp.json.count("value") > 0) {
-                ev_steps = resp.json["value"].get<double>(); 
-                camera_state.current_ev = ev_steps / 10.0;  // Convert to actual EV                
-            }
-            cout << "   📊 Current EV: " << std::showpos << camera_state.current_ev << std::noshowpos << " (steps: " << ev_steps << ")" << std::endl;
-        } else {
-            cout << "   ⚠️ Could not read EV (HTTP " << resp.status << ")" << endl;
+        resp = getRequest("/ctrl/get?k=iris");
+        if (resp.status == 200 && resp.json.count("value") > 0) {
+            camera_state.current_aperture = resp.json["value"].get<string>();
+            camera_state.current_iris = stod(camera_state.current_aperture); 
         }
+
+        // resp = getRequest("/ctrl/get?k=ev");
+        // if (resp.status == 200) {
+        //     double ev_steps = 0.0;
+        //     if (resp.json.count("value") > 0) {
+        //         ev_steps = resp.json["value"].get<double>(); 
+        //         camera_state.current_ev = ev_steps / 10.0;  // Convert to actual EV                
+        //     }
+        //     cout << "   📊 Current EV: " << std::showpos << camera_state.current_ev << std::noshowpos << " (steps: " << ev_steps << ")" << std::endl;
+        // } else {
+        //     cout << "   ⚠️ Could not read EV (HTTP " << resp.status << ")" << endl;
+        // }
+
+        postRequest("/api/caminfo", toJson())
         
         // Show available ISO options
         // if (root.isMember("opts") && root["opts"].isArray()) {
