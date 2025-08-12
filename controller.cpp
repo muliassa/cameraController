@@ -964,7 +964,7 @@ public:
         if (resp.status == 200 && resp.json.count("value") > 0) {
             auto shutter = resp.json["value"].get<string>();
             camera_state.shutter_options = resp.json["opts"];
-            camera_state.current_shutter_angle = shutter == 'Auto' ? 0 : stoi(shutter);
+            camera_state.current_shutter_angle = shutter == "Auto" ? 0 : stoi(shutter);
         }
 
         // resp = getRequest("/ctrl/get?k=ev");
