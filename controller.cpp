@@ -922,7 +922,7 @@ public:
 
     Network::Response postRequest(const string& endpoint, nlohmann::json params) {
         Network network;
-        auto response = network.https_request(server, endpoint, http::verb::post, params);
+        return network.https_request(server, endpoint, http::verb::post, params);
     }
 
     Network::Response getRequest(const string& endpoint, const string& method = "GET", const string& data = "") {
