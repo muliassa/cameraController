@@ -60,8 +60,10 @@ struct CameraState {
     double current_iris = 10.0;
     double current_ev = 0.0;
     string current_aperture = "5.6";
+
     int current_shutter_angle = 180;
-    
+    nlohmann::json::array shutter_options;
+
     // Scene analysis
     double sun_factor = 0.5;
     string scene_type = "unknown";
@@ -72,7 +74,7 @@ struct CameraState {
 };
 
 struct LogEntry {
-    std::string timestamp;
+    string timestamp;
     ExposureMetrics metrics;
     ZCAMSettings settings;
     double sun_factor;
@@ -894,8 +896,13 @@ public:
         nlohmann::json params;
         params["iso"] = camera_state.current_iso;
         params["iris"] = camera_state.current_iris;
-        params["target_brightness"] = camera_state.target_brightness;
+        params["shutter"] = camera_state.current_shutter_angle;
+        params["shutter_options"] = camera_state.shutter_options;
         params["mean_brightness"] = exposure_metrics.mean_brightness;
+        params["target_brightness"] = camera_state.target_brightness;
+        params["brightness_range"] = "112-144";
+        params["contrast"] = exposure_metrics.contrast;
+        params["contrast_range"] = "25-60";
         return params;
     }
 
@@ -951,6 +958,13 @@ public:
         if (resp.status == 200 && resp.json.count("value") > 0) {
             camera_state.current_aperture = resp.json["value"].get<string>();
             camera_state.current_iris = stod(camera_state.current_aperture); 
+        }
+
+        resp = getRequest("/ctrl/get?k=shutter_angle");
+        if (resp.status == 200 && resp.json.count("value") > 0) {
+            auto shutter = res.json["value"].get<string>();
+            camera_state.shutter_options = res.json["opts"];
+            camera_state.current_shutter_angle = shutter == 'Auto' ? 0 : stoi(shutter);
         }
 
         // resp = getRequest("/ctrl/get?k=ev");
