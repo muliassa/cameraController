@@ -9,6 +9,8 @@
 #include <curl/curl.h>
 #include <json/json.h>
 
+#include <network.h>
+
 // FFmpeg C API headers
 extern "C" {
 #include <libavformat/avformat.h>
@@ -134,6 +136,7 @@ public:
         
         std::cout << "🎥 ZCAM Simple Frame Capture" << std::endl;
         std::cout << "📡 RTSP URL: " << rtsp_url << std::endl;
+
     }
     
     ~ZCAMFFmpegController() {
@@ -933,8 +936,13 @@ public:
         return totalSize;
     }
 
-    HTTPResponse curlHTTPRequest(const std::string& endpoint, const std::string& method = "GET", const std::string& data = "") {
+    Network::Response curlHTTPRequest(const std::string& endpoint, const std::string& method = "GET", const std::string& data = "") {
+
         std::cout << "🌐 HTTP Request: " << endpoint << std::endl;
+
+        auto response = network.http_get(camera_ip, endpoint);
+        if (response.timeout) continue;
+        cout << "HTTP Response: " << response.str << endl;
         
         HTTPResponse response;
         
@@ -1080,9 +1088,9 @@ public:
         Json::Reader reader;
         
         // Get current ISO - using your working JS format
-        HTTPResponse iso_resp = curlHTTPRequest("/ctrl/get?k=iso");
-        if (iso_resp.success) {
-            if (reader.parse(iso_resp.data, root)) {
+        auto iso_resp = curlHTTPRequest("/ctrl/get?k=iso");
+        if (iso_resp.status == 200) {
+            if (reader.parse(iso_resp.str, root)) {
                 if (root.isMember("code") && root["code"].asInt() == 0 && root.isMember("value")) {
                     std::string iso_str = root["value"].asString();
                     camera_state.current_iso = std::stoi(iso_str);
@@ -1093,69 +1101,68 @@ public:
             std::cout << "   ⚠️ Could not read ISO (HTTP " << iso_resp.response_code << ")" << std::endl;
         }
 
-        
         // Show available ISO options
-        if (root.isMember("opts") && root["opts"].isArray()) {
-            std::cout << "   🎚️ Available ISOs: ";
-            for (const auto& iso_opt : root["opts"]) {
-                std::cout << iso_opt.asString() << " ";
-            }
-            std::cout << std::endl;
-        } else {
-            std::cout << "   ❌ Unexpected ISO response format" << std::endl;
-            std::cout << "   Response: " << iso_resp.data << std::endl;
-        }
+        // if (root.isMember("opts") && root["opts"].isArray()) {
+        //     std::cout << "   🎚️ Available ISOs: ";
+        //     for (const auto& iso_opt : root["opts"]) {
+        //         std::cout << iso_opt.asString() << " ";
+        //     }
+        //     std::cout << std::endl;
+        // } else {
+        //     std::cout << "   ❌ Unexpected ISO response format" << std::endl;
+        //     std::cout << "   Response: " << iso_resp.data << std::endl;
+        // }
 
-        return iso_resp.success;
+        return iso_resp.status == 200;
 
         // Get white balance for context
-        HTTPResponse wb_resp = curlHTTPRequest("/ctrl/get?k=wb");
-        if (wb_resp.success) {
-            Json::Value root;
-            Json::Reader reader;
-            if (reader.parse(wb_resp.data, root) && root.isMember("value")) {
-                std::cout << "   📊 White Balance: " << root["value"].asString() << std::endl;
-            }
-        }
+        // HTTPResponse wb_resp = curlHTTPRequest("/ctrl/get?k=wb");
+        // if (wb_resp.success) {
+        //     Json::Value root;
+        //     Json::Reader reader;
+        //     if (reader.parse(wb_resp.data, root) && root.isMember("value")) {
+        //         std::cout << "   📊 White Balance: " << root["value"].asString() << std::endl;
+        //     }
+        // }
         
         // Get manual white balance if available
-        HTTPResponse mwb_resp = curlHTTPRequest("/ctrl/get?k=mwb");
-        if (mwb_resp.success) {
-            Json::Value root;
-            Json::Reader reader;
-            if (reader.parse(mwb_resp.data, root) && root.isMember("value")) {
-                std::cout << "   📊 Manual WB: " << root["value"].asString() << "K" << std::endl;
-            }
-        }
+        // HTTPResponse mwb_resp = curlHTTPRequest("/ctrl/get?k=mwb");
+        // if (mwb_resp.success) {
+        //     Json::Value root;
+        //     Json::Reader reader;
+        //     if (reader.parse(mwb_resp.data, root) && root.isMember("value")) {
+        //         std::cout << "   📊 Manual WB: " << root["value"].asString() << "K" << std::endl;
+        //     }
+        // }
         
         // Get camera temperature
-        HTTPResponse temp_resp = curlHTTPRequest("/ctrl/temperature");
-        if (temp_resp.success) {
-            Json::Value root;
-            Json::Reader reader;
-            if (reader.parse(temp_resp.data, root)) {
-                std::cout << "   🌡️ Camera Temp: " << temp_resp.data << std::endl;
-            }
-        }
+        // HTTPResponse temp_resp = curlHTTPRequest("/ctrl/temperature");
+        // if (temp_resp.success) {
+        //     Json::Value root;
+        //     Json::Reader reader;
+        //     if (reader.parse(temp_resp.data, root)) {
+        //         std::cout << "   🌡️ Camera Temp: " << temp_resp.data << std::endl;
+        //     }
+        // }
         
         // Check recording status  
-        HTTPResponse rec_resp = curlHTTPRequest("/ctrl/get?k=rec");
-        if (rec_resp.success) {
-            Json::Value root;
-            Json::Reader reader;
-            if (reader.parse(rec_resp.data, root) && root.isMember("value")) {
-                std::string rec_status = root["value"].asString();
-                std::cout << "   📹 Recording: " << (rec_status == "on" ? "🔴 RECORDING" : "⏸️ STANDBY") << std::endl;
-            }
-        }
+        // HTTPResponse rec_resp = curlHTTPRequest("/ctrl/get?k=rec");
+        // if (rec_resp.success) {
+        //     Json::Value root;
+        //     Json::Reader reader;
+        //     if (reader.parse(rec_resp.data, root) && root.isMember("value")) {
+        //         std::string rec_status = root["value"].asString();
+        //         std::cout << "   📹 Recording: " << (rec_status == "on" ? "🔴 RECORDING" : "⏸️ STANDBY") << std::endl;
+        //     }
+        // }
         
         // Determine profile based on your JS logic
-        std::string profile = "custom";
-        if (camera_state.current_iso == 400) profile = "day";
-        else if (camera_state.current_iso == 51200) profile = "night";
-        std::cout << "   🎬 Profile: " << profile << std::endl;
+        // std::string profile = "custom";
+        // if (camera_state.current_iso == 400) profile = "day";
+        // else if (camera_state.current_iso == 51200) profile = "night";
+        // std::cout << "   🎬 Profile: " << profile << std::endl;
         
-        return iso_resp.success;
+        return iso_resp.status == 200;
     }
 
 

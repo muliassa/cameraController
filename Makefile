@@ -5,7 +5,7 @@ CXX = g++
 BUILD_DIR = build
 
 # Source files - add only the needed SDK implementation files
-SOURCES = controller.cpp 
+SOURCES = controller.cpp network.cpp
 
 TARGET = $(BUILD_DIR)/cameraController
 
