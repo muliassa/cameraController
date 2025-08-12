@@ -78,12 +78,12 @@ struct LogEntry {
     double sun_factor;
 };
 
-class ZCAMFFmpegController {
+class ZCAMController {
 private:
 
     string server;
-    std::string camera_ip;
-    std::string rtsp_url;
+    string camera_ip;
+    string rtsp_url;
     string http_base_url;
     CURL *curl;
 
@@ -113,7 +113,7 @@ private:
 
 public:
 
-    ZCAMFFmpegController(const string& camera_ip) {
+    ZCAMController(const string& camera_ip) {
 
         server = "surfai.peocl.com";
 
@@ -133,7 +133,7 @@ public:
 
     }
     
-    ~ZCAMFFmpegController() {
+    ~ZCAMController() {
         cleanup();
         avformat_network_deinit();
     }
@@ -923,11 +923,6 @@ public:
         std::cout << "🧹 Cleaned up" << std::endl;
     }
 
-    Network::Response postReport(const string& endpoint, nlohmann::json params) {
-        Network network;
-        return network.https_request(server, endpoint, http::verb::post, params);
-    }
-
     Network::Response getRequest(const string& endpoint, const string& method = "GET", const string& data = "") {
 
         std::cout << "🌐 HTTP Request: " << endpoint << std::endl;
@@ -1035,21 +1030,8 @@ public:
 
 };
 
-// Simple test of just the frame capture
-int main(int argc, char* argv[]) {
+bool monitorCamera(ZCAMController& controller) {
 
-    std::string camera_ip = "192.168.150.201";
-    
-    if (argc > 1) {
-        camera_ip = argv[1];
-    }
-    
-    PeoclLogger::getInstance("./cameraController.log")->log("start controller");
-
-    try {
-
-        ZCAMFFmpegController controller(camera_ip);
-        
         // Connect to camera
         if (!controller.connect()) {
             std::cout << "❌ Failed to connect to camera" << std::endl;
@@ -1082,8 +1064,6 @@ int main(int argc, char* argv[]) {
 
             // Analyze exposure
                 ExposureMetrics metrics = controller.analyzeExposure(rgb_data, width, height);
-
-                controller.postReport("/api/caminfo", controller.toJson());
                 
                 cout << "📊 Brightness: " << fixed << setprecision(1) 
                          << metrics.mean_brightness << "/255";
@@ -1129,6 +1109,34 @@ int main(int argc, char* argv[]) {
         }
         
         std::cout << "\n✅ Test completed successfully!" << std::endl;
+
+}
+
+Network::Response postReport(const string& endpoint, nlohmann::json params) {
+    Network network;
+    return network.https_request("surfai.peocl.com", endpoint, http::verb::post, params);
+}
+
+// Simple test of just the frame capture
+int main(int argc, char* argv[]) {
+    
+    PeoclLogger::getInstance("./cameraController.log")->log("start controller");
+
+    try {
+
+        ZCAMController rightController("192.168.150.201");
+        
+        ZCAMController leftController("192.168.150.202");
+
+        monitorCamera(rightController);
+
+        monitorCamera(leftController);
+
+        nlohmann::json params;
+        params["LEFT"] = leftController.toJson(); 
+        params["RIGHT"] = rightController.toJson(); 
+        postReport("/api/caminfo", params);
+
         return 0;
         
     } catch (const std::exception& e) {
@@ -1136,3 +1144,4 @@ int main(int argc, char* argv[]) {
         return -1;
     }
 }
+
