@@ -913,6 +913,15 @@ public:
         std::cout << "🧹 Cleaned up" << std::endl;
     }
 
+    // Simple callback that writes to a string
+    static size_t WriteToStringCallback(void *contents, size_t size, size_t nmemb, std::string *userp) {
+        size_t totalSize = size * nmemb;
+        if (userp && contents) {
+            userp->append(static_cast<char*>(contents), totalSize);
+        }
+        return totalSize;
+    }
+    
     static size_t WriteCallback(void *contents, size_t size, size_t nmemb, void *userp) {
         size_t totalSize = size * nmemb;
         HTTPResponse *response = static_cast<HTTPResponse*>(userp);
@@ -925,6 +934,84 @@ public:
     }
 
     HTTPResponse curlHTTPRequest(const std::string& endpoint, const std::string& method = "GET", const std::string& data = "") {
+        std::cout << "🌐 HTTP Request: " << endpoint << std::endl;
+        
+        HTTPResponse response;
+        
+        if (!curl) {
+            std::cout << "❌ CURL not initialized" << std::endl;
+            return response;
+        }
+        
+        std::string url = http_base_url + endpoint;
+        std::cout << "🔗 Full URL: " << url << std::endl;
+        
+        // Use a simple string for response data
+        std::string response_data;
+        
+        // Reset and configure curl
+        curl_easy_reset(curl);
+        curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
+        curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteToStringCallback);
+        curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response_data);
+        curl_easy_setopt(curl, CURLOPT_TIMEOUT, 10L);
+        curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, 5L);
+        curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
+        curl_easy_setopt(curl, CURLOPT_USERAGENT, "ZCAM-Controller/1.0");
+        
+        // Disable SSL verification for local network
+        curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0L);
+        curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 0L);
+        
+        // Enable verbose output for debugging
+        curl_easy_setopt(curl, CURLOPT_VERBOSE, 1L);
+        
+        struct curl_slist *headers = nullptr;
+        
+        if (method == "POST") {
+            curl_easy_setopt(curl, CURLOPT_POSTFIELDS, data.c_str());
+            curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE, data.length());
+            headers = curl_slist_append(headers, "Content-Type: application/json");
+            curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
+        }
+        
+        // Perform the request
+        std::cout << "📡 Performing CURL request..." << std::endl;
+        CURLcode res = curl_easy_perform(curl);
+        
+        // Clean up headers
+        if (headers) {
+            curl_slist_free_all(headers);
+        }
+        
+        // Get response info
+        curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &response.response_code);
+        
+        std::cout << "📡 CURL Result: " << res << " (" << curl_easy_strerror(res) << ")" << std::endl;
+        std::cout << "📡 HTTP Code: " << response.response_code << std::endl;
+        std::cout << "📄 Response length: " << response_data.length() << " bytes" << std::endl;
+        
+        if (response_data.length() > 0) {
+            std::cout << "📄 Response preview: " << response_data.substr(0, 100) << std::endl;
+        }
+        
+        // Copy response data
+        response.data = response_data;
+        response.success = (res == CURLE_OK && response.response_code == 200);
+        
+        if (!response.success) {
+            std::cout << "❌ Request failed - CURL: " << curl_easy_strerror(res) << std::endl;
+            if (response.response_code != 200) {
+                std::cout << "❌ HTTP Error: " << response.response_code << std::endl;
+            }
+        } else {
+            std::cout << "✅ HTTP request successful" << std::endl;
+        }
+        
+        return response;
+    }
+
+    HTTPResponse sendHTTPRequest(const std::string& endpoint, const std::string& method = "GET", const std::string& data = "") {
         std::cout << "🌐 HTTP Request: " << endpoint << std::endl;
         
         HTTPResponse response;
