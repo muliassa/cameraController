@@ -10,6 +10,7 @@
 #include <json/json.h>
 
 #include <network.h>
+#include <peocl_logger.h>
 
 // FFmpeg C API headers
 extern "C" {
@@ -1011,12 +1012,15 @@ public:
 
 // Simple test of just the frame capture
 int main(int argc, char* argv[]) {
+
     std::string camera_ip = "192.168.150.201";
     
     if (argc > 1) {
         camera_ip = argv[1];
     }
     
+    PeoclLogger::getInstance("./cameraController.log")->log("start controller");
+
     try {
 
         ZCAMFFmpegController controller(camera_ip);
