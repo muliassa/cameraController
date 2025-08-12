@@ -933,7 +933,7 @@ public:
         // Get current ISO - using your working JS format
         auto iso_resp = curlHTTPRequest("/ctrl/get?k=iso");
         if (iso_resp.status == 200) {
-            if iso_res.count("value") > 0 
+            if (iso_res.count("value") > 0) 
                 camera_state.current_iso = stoi(iso_resp["value"].get<string>())
             cout << "   📊 Current ISO: " << camera_state.current_iso << endl;
         } else {
