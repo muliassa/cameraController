@@ -942,9 +942,7 @@ public:
 
         Network network;
 
-        auto response = network.http_get(camera_ip, endpoint);
-        
-        return network.response;
+        return network.http_get(camera_ip, endpoint);
 
         cout << "HTTP Response: " << response.str << endl;
         
