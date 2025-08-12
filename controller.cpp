@@ -919,7 +919,7 @@ public:
 
         cout << "HTTP Response: " << response.str << " " << response.status << endl;
 
-        response = network.http_get(camera_ip, string("http://") + camera_id + endpoint);
+        response = network.http_get(camera_ip, string("http://") + camera_ip + endpoint);
 
         cout << "HTTP Response: " << response.str << " " << response.status << endl;
         
