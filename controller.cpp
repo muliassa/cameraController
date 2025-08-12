@@ -970,7 +970,7 @@ public:
         //     cout << "   ⚠️ Could not read EV (HTTP " << resp.status << ")" << endl;
         // }
 
-        postRequest("/api/caminfo", toJson())
+        postRequest("/api/caminfo", toJson());
         
         // Show available ISO options
         // if (root.isMember("opts") && root["opts"].isArray()) {
