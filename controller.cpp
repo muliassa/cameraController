@@ -945,6 +945,7 @@ public:
             cout << "   📊 Current EV: " << std::showpos << camera_state.current_ev << std::noshowpos << " (steps: " << ev_steps << ")" << std::endl;
         } else {
             cout << "   ⚠️ Could not read EV (HTTP " << resp.status << ")" << endl;
+        }
         
         // Show available ISO options
         // if (root.isMember("opts") && root["opts"].isArray()) {
