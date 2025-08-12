@@ -78,6 +78,8 @@ Network::Response Network::http_get(string host, string url, string port) {
 
     try {
 
+        PeoclLogger::getInstance()->log(string("http_get: ") + host + " " + url);
+
         // The io_context is required for all I/O
         net::io_context ioc;
         tcp::resolver resolver(ioc);

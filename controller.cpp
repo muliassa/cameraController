@@ -909,7 +909,7 @@ public:
         std::cout << "🧹 Cleaned up" << std::endl;
     }
 
-    Network::Response curlHTTPRequest(const std::string& endpoint, const std::string& method = "GET", const std::string& data = "") {
+    Network::Response curlHTTPRequest(const string& endpoint, const string& method = "GET", const string& data = "") {
 
         std::cout << "🌐 HTTP Request: " << endpoint << std::endl;
 
@@ -917,7 +917,11 @@ public:
 
         auto response = network.http_get(camera_ip, endpoint);
 
-        cout << "HTTP Response: " << response.str << endl;
+        cout << "HTTP Response: " << response.str << " " << response.status << endl;
+
+        response = network.http_get(camera_ip, string("http://") + camera_id + endpoint);
+
+        cout << "HTTP Response: " << response.str << " " << response.status << endl;
         
         return response;
     }
