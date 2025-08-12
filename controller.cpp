@@ -937,8 +937,9 @@ public:
 
         resp = getRequest("/ctrl/get?k=ev");
         if (resp.status == 200) {
+            double ev_steps = 0.0;
             if (resp.json.count("value") > 0) {
-                auto ev_steps = stod(resp.json["value"].get<string>());
+                ev_steps = stod(resp.json["value"].get<string>());
                 camera_state.current_ev = ev_steps / 10.0;  // Convert to actual EV                
             }
             cout << "   📊 Current EV: " << std::showpos << camera_state.current_ev << std::noshowpos << " (steps: " << ev_steps << ")" << std::endl;
