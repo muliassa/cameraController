@@ -364,7 +364,7 @@ std::future<Network::Response> Network::https_async_get(string host, string url,
                                                 return;
                                             }
                                             
-                                            response.status = res->result_int();
+                                            res->result_int();
 
                                             // Extract body as string
                                             const auto& body = res->body();

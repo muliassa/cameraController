@@ -79,6 +79,7 @@ struct LogEntry {
 
 class ZCAMFFmpegController {
 private:
+
     std::string camera_ip;
     std::string rtsp_url;
     string http_base_url;
@@ -117,7 +118,11 @@ private:
     std::vector<LogEntry> exposure_history;
 
 public:
-    ZCAMFFmpegController(const std::string& camera_ip) {
+
+    ZCAMFFmpegController(const string& camera_ip) {
+
+        this->camera_ip = camera_ip;
+
         rtsp_url = "rtsp://" + camera_ip + "/live_stream";
         http_base_url = "http://" + camera_ip;
         
