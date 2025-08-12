@@ -914,7 +914,7 @@ public:
         params["shutter"] = camera_state.current_shutter_angle;
         params["mean_brightness"] = exposure_metrics.mean_brightness;
         params["contrast"] = exposure_metrics.contrast;
-        params["exposure_score"] = camera_state.exposure_score;
+        params["exposure_score"] = exposure_metrics.exposure_score;
         return params;
     }
 
@@ -1155,7 +1155,7 @@ int main(int argc, char* argv[]) {
         monitorCamera(leftController);
 
         nlohmann::json params;
-        params["options"] = leftCamera.getOptions();
+        params["options"] = leftController.getOptions();
         params["LEFT"] = leftController.toJson(); 
         params["RIGHT"] = rightController.toJson(); 
         postReport("/api/caminfo", params);
