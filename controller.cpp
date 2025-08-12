@@ -62,7 +62,7 @@ struct CameraState {
     string current_aperture = "5.6";
 
     int current_shutter_angle = 180;
-    nlohmann::json::array shutter_options;
+    nlohmann::json shutter_options;
 
     // Scene analysis
     double sun_factor = 0.5;
@@ -962,8 +962,8 @@ public:
 
         resp = getRequest("/ctrl/get?k=shutter_angle");
         if (resp.status == 200 && resp.json.count("value") > 0) {
-            auto shutter = res.json["value"].get<string>();
-            camera_state.shutter_options = res.json["opts"];
+            auto shutter = resp.json["value"].get<string>();
+            camera_state.shutter_options = resp.json["opts"];
             camera_state.current_shutter_angle = shutter == 'Auto' ? 0 : stoi(shutter);
         }
 
