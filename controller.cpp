@@ -923,32 +923,21 @@ public:
         auto response = network.http_get(camera_ip, endpoint);
 
         cout << "HTTP Response: " << response.str << " " << response.status << endl;
-
-        response = network.http_get(camera_ip, string("http://") + camera_ip + endpoint);
-
-        cout << "HTTP Response: " << response.str << " " << response.status << endl;
         
         return response;
     }
 
     bool getCurrentCameraSettings() {
         std::cout << "🔍 Reading current ZCAM E8 Z2 settings..." << std::endl;
-
-        Json::Value root;
-        Json::Reader reader;
         
         // Get current ISO - using your working JS format
         auto iso_resp = curlHTTPRequest("/ctrl/get?k=iso");
         if (iso_resp.status == 200) {
-            if (reader.parse(iso_resp.str, root)) {
-                if (root.isMember("code") && root["code"].asInt() == 0 && root.isMember("value")) {
-                    std::string iso_str = root["value"].asString();
-                    camera_state.current_iso = std::stoi(iso_str);
-                    std::cout << "   📊 Current ISO: " << camera_state.current_iso << std::endl;
-                }               
-            }
+            if iso_res.count("value") > 0 
+                camera_state.current_iso = stoi(iso_resp["value"].get<string>())
+            cout << "   📊 Current ISO: " << camera_state.current_iso << endl;
         } else {
-            std::cout << "   ⚠️ Could not read ISO (HTTP " << iso_resp.status << ")" << std::endl;
+            cout << "   ⚠️ Could not read ISO (HTTP " << iso_resp.status << ")" << endl;
         }
 
         // Show available ISO options
