@@ -221,7 +221,7 @@ public:
         double score = 100.0;
         
         // Penalize brightness deviation from target
-        double brightness_error = std::abs(metrics.mean_brightness - target_brightness);
+        double brightness_error = std::abs(metrics.mean_brightness - camera_state.target_brightness);
         score -= std::min(brightness_error * 2.0, 50.0);
         
         // Penalize clipped pixels
@@ -427,7 +427,7 @@ public:
     string getAdjustmentReasoning(double brightness_error, const ExposureMetrics& metrics, double sun_factor) {
         std::vector<std::string> reasons;
         
-        if (std::abs(brightness_error) > brightness_tolerance) {
+        if (std::abs(brightness_error) > camera_state.brightness_tolerance) {
             std::ostringstream oss;
             if (brightness_error < 0) {
                 oss << "Image too dark (brightness: " << std::fixed << std::setprecision(1) << metrics.mean_brightness << ")";
@@ -1083,9 +1083,9 @@ int main(int argc, char* argv[]) {
             // Analyze exposure
                 ExposureMetrics metrics = controller.analyzeExposure(rgb_data, width, height);
 
-                postReport("/api/caminfo", toJson());
+                controller.postReport("/api/caminfo", controller.toJson());
                 
-                std::cout << "📊 Brightness: " << fixed << setprecision(1) 
+                cout << "📊 Brightness: " << fixed << setprecision(1) 
                          << metrics.mean_brightness << "/255";
                 
                 if (metrics.mean_brightness < 100) {
