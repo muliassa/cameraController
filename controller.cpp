@@ -939,14 +939,13 @@ public:
         if (resp.status == 200) {
             double ev_steps = 0.0;
             if (resp.json.count("value") > 0) {
-                ev_steps = stod(resp.json["value"].get<string>());
+                ev_steps = resp.json["value"].get<double>(); 
                 camera_state.current_ev = ev_steps / 10.0;  // Convert to actual EV                
             }
             cout << "   📊 Current EV: " << std::showpos << camera_state.current_ev << std::noshowpos << " (steps: " << ev_steps << ")" << std::endl;
         } else {
             cout << "   ⚠️ Could not read EV (HTTP " << resp.status << ")" << endl;
-        }
-
+        
         // Show available ISO options
         // if (root.isMember("opts") && root["opts"].isArray()) {
         //     std::cout << "   🎚️ Available ISOs: ";
