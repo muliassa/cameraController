@@ -23,7 +23,7 @@ LIB_DIRS = -L/lib/x86_64-linux-gnu/
 
 # Libraries - CUDA 12.x NPP libraries with explicit FFmpeg 6.1.1 paths
 LIBS = -lavformat -lavcodec -lavutil -lswscale \
-    -lcurl -ljsoncpp -pthread -lssl 
+    -lcurl -ljsoncpp -pthread -lssl -lcrypto
 
 # Compiler flags
 CXXFLAGS = -std=c++17 -O2 -Wall
