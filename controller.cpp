@@ -899,12 +899,13 @@ public:
 
     nlohmann::json getOptions() {
         nlohmann::json options;
-        params["iso_options"] = camera_state.iso_options;
-        params["iris_options"] = camera_state.iris_options;
-        params["shutter_options"] = camera_state.shutter_options;
-        params["target_brightness"] = camera_state.target_brightness;
-        params["brightness_range"] = "112-144";
-        params["contrast_range"] = "25-60";
+        options["iso_options"] = camera_state.iso_options;
+        options["iris_options"] = camera_state.iris_options;
+        options["shutter_options"] = camera_state.shutter_options;
+        options["target_brightness"] = camera_state.target_brightness;
+        options["brightness_range"] = "112-144";
+        options["contrast_range"] = "25-60";
+        return options;
     }
 
     nlohmann::json toJson() { 
