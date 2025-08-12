@@ -18,17 +18,18 @@ using namespace std;
 
 class Network {
 
+    bool log = false;
+    uint parse_response(http::response<http::dynamic_body> res, bool verbose = false);
+
+public:
+
     struct Response {
         string str;
         nlohmann::json json;
         uint status = 200; // wishful thinking
         bool timeout = false;
     };
-    bool log = false;
 
-    uint parse_response(http::response<http::dynamic_body> res, bool verbose = false);
-
-public:
     static string urlencode(const std::string &s);
     void set_log(bool enabled) { log = enabled; };
     Response http_get(string host, string url, string port = "80");

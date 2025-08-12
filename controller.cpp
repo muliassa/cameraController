@@ -940,8 +940,12 @@ public:
 
         std::cout << "🌐 HTTP Request: " << endpoint << std::endl;
 
+        Network network;
+
         auto response = network.http_get(camera_ip, endpoint);
-        if (response.timeout) continue;
+        
+        return network.response;
+
         cout << "HTTP Response: " << response.str << endl;
         
         HTTPResponse response;
