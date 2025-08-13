@@ -834,6 +834,8 @@ public:
                     // Try to receive a frame
                     ret = avcodec_receive_frame(codec_ctx, frame);
                     if (ret == 0) {
+
+                        someFFMpeg->
                         // We got a frame! Convert it to RGB
                         width = frame->width;
                         height = frame->height;
