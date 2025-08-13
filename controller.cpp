@@ -12,15 +12,7 @@
 #include <network.h>
 #include <peocl_logger.h>
 
-// FFmpeg C API headers
-extern "C" {
-#include <libavformat/avformat.h>
-#include <libavcodec/avcodec.h>
-#include <libavutil/imgutils.h>
-#include <libavutil/frame.h>
-#include <libavutil/error.h>
-#include <libswscale/swscale.h>
-}
+#include <someFFMpeg.h>
 
 using namespace std;
 
@@ -835,7 +827,8 @@ public:
                     ret = avcodec_receive_frame(codec_ctx, frame);
                     if (ret == 0) {
 
-                        someFFMpeg->
+                        someFFMpeg::saveAVFrameAsJpeg(frame, "stream.jpg", 100);
+                        
                         // We got a frame! Convert it to RGB
                         width = frame->width;
                         height = frame->height;
