@@ -22,7 +22,7 @@ void someFFMpeg::saveAVFrameAsJPEG(AVFrame *frame, string path, int quality) {
     // Configure codec for YUV420P
     codecContext->width = frame->width;
     codecContext->height = frame->height;
-    codecContext->pix_fmt = frame->format; // AV_PIX_FMT_YUV420P;
+    codecContext->pix_fmt = (AVPixelFormat)frame->format;
     codecContext->time_base = {1, 25};
     codecContext->global_quality = FF_QP2LAMBDA * (31 - (quality * 31 / 100));
     codecContext->flags |= AV_CODEC_FLAG_QSCALE;
