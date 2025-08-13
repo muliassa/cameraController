@@ -9,9 +9,9 @@
 #include <curl/curl.h>
 #include <json/json.h>
 
-#include <network.h>
 #include <peocl_logger.h>
 
+#include <someNetwork.h>
 #include <someFFMpeg.h>
 
 using namespace std;
@@ -827,8 +827,8 @@ public:
                     ret = avcodec_receive_frame(codec_ctx, frame);
                     if (ret == 0) {
 
-                        someFFMpeg::saveAVFrameAsJpeg(frame, "stream.jpg", 100);
-                        
+                        someFFMpeg::saveAVFrameAsJPEG(frame, string("stream.jpg"), 100);
+
                         // We got a frame! Convert it to RGB
                         width = frame->width;
                         height = frame->height;
@@ -935,11 +935,11 @@ public:
         std::cout << "🧹 Cleaned up" << std::endl;
     }
 
-    Network::Response getRequest(const string& endpoint, const string& method = "GET", const string& data = "") {
+    someNetwork::Response getRequest(const string& endpoint, const string& method = "GET", const string& data = "") {
 
         std::cout << "🌐 HTTP Request: " << endpoint << std::endl;
 
-        Network network;
+        someNetwork network;
 
         auto response = network.http_get(camera_ip, endpoint);
 
@@ -1132,8 +1132,8 @@ bool monitorCamera(ZCAMController& controller) {
 
 }
 
-Network::Response postReport(const string& endpoint, nlohmann::json params) {
-    Network network;
+someNetwork::Response postReport(const string& endpoint, nlohmann::json params) {
+    someNetwork network;
     return network.https_request("surfai.peocl.com", endpoint, http::verb::post, params);
 }
 

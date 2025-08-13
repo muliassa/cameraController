@@ -2,7 +2,7 @@
 // Created by muli on 12/19/23.
 //
 
-#include "network.h"
+#include <someNetwork.h>
 
 #include "root_certificates.hpp"
 
@@ -26,7 +26,7 @@ namespace ssl = net::ssl;           // from <boost/asio/ssl.hpp>
 using tcp = net::ip::tcp;           // from <boost/asio/ip/tcp.hpp>
 
 
-string Network::urlencode(const std::string &s)
+string someNetwork::urlencode(const std::string &s)
 {
     static const char lookup[]= "0123456789abcdef";
     std::stringstream e;
@@ -51,7 +51,7 @@ string Network::urlencode(const std::string &s)
     return e.str();
 }
 
-uint Network::parse_response(http::response<http::dynamic_body> res, bool verbose) {
+uint someNetwork::parse_response(http::response<http::dynamic_body> res, bool verbose) {
 
     // parse response
 
@@ -72,7 +72,7 @@ uint Network::parse_response(http::response<http::dynamic_body> res, bool verbos
 }
 
 
-Network::Response Network::http_get(string host, string url, string port) {
+someNetwork::Response someNetwork::http_get(string host, string url, string port) {
 
     Response response;
 
@@ -129,7 +129,7 @@ Network::Response Network::http_get(string host, string url, string port) {
     return response;
 }
 
-Network::Response Network::http_request(string host, string url, http::verb method, nlohmann::json params, string port) {
+someNetwork::Response someNetwork::http_request(string host, string url, http::verb method, nlohmann::json params, string port) {
 
     if (log)
         std::cout << "http_request# " << url << " " << method << " " << params << std::endl;
@@ -181,7 +181,7 @@ Network::Response Network::http_request(string host, string url, http::verb meth
     return response;
 }
 
-std::future<Network::Response> Network::https_async_get(string host, string url, string authorization, string port) {
+future<someNetwork::Response> someNetwork::https_async_get(string host, string url, string authorization, string port) {
 
     std::cout << "async_get# " << host << " " << url << std::endl;
 
@@ -423,7 +423,7 @@ std::future<Network::Response> Network::https_async_get(string host, string url,
 }
 
 
-Network::Response Network::https_get(string host, string url, string authorization, string port) {
+someNetwork::Response someNetwork::https_get(string host, string url, string authorization, string port) {
 
     Response response;
 
@@ -598,7 +598,7 @@ Network::Response Network::https_get(string host, string url, string authorizati
     return response;
 }
 
-Network::Response Network::https_request(string host, string url, http::verb method, nlohmann::json params, string authorization, string port) {
+someNetwork::Response someNetwork::https_request(string host, string url, http::verb method, nlohmann::json params, string authorization, string port) {
 
     PeoclLogger::getInstance()->log("https_request# " + host + " " + url + " " + params.dump(4));
     
@@ -683,7 +683,7 @@ Network::Response Network::https_request(string host, string url, http::verb met
     return response;
 }
 
-bool Network::https_download(string host, string url, string path, string authorization, string port) {
+bool someNetwork::https_download(string host, string url, string path, string authorization, string port) {
 
     PeoclLogger::getInstance()->log("download# " + path + " url# " + url + " auth# " + authorization);
 

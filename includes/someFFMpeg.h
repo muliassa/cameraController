@@ -14,4 +14,4 @@ extern "C" {
 class someFFMpeg {
 public:
 	static void saveAVFrameAsJPEG(AVFrame *frame, string path, int quality);
-}
+};

@@ -16,7 +16,7 @@ namespace http = beast::http;       // from <boost/beast/http.hpp>
 
 using namespace std;
 
-class Network {
+class someNetwork {
 
     bool log = false;
     uint parse_response(http::response<http::dynamic_body> res, bool verbose = false);
