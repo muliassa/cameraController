@@ -1,6 +1,8 @@
 #include <someFFMpeg.h>
 
-void someFFMpeg::saveAVFrameAsJPEG(AVFrame *c, string path, int quality) {
+#include <iostream>
+
+void someFFMpeg::saveAVFrameAsJPEG(AVFrame *frame, string path, int quality) {
 
     cout << "saveAVFrame# " << frame->width << " x " << frame->height << " format: " << frame->format << endl;
     
