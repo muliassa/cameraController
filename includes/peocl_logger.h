@@ -7,9 +7,8 @@
 #include <cstdint>
 #include <filesystem>
 
-namespace fs = std::filesystem;
-
 using namespace std;
+namespace fs = std::filesystem;
 
 enum class PeoclLogLevel { ERROR, INFO, DEBUG, DEFAULT };
 enum class Colors { BLACK=30, RED=31, GREEN=32, YELLOW=33, BLUE=34, MAGENTA=35};

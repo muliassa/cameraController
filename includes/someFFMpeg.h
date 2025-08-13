@@ -1,4 +1,8 @@
 
+#ifndef SOME_FFMPEG_H
+#define SOME_FFMPEG_H
+
+#include <string>
 
 // FFmpeg C API headers
 extern "C" {
@@ -10,8 +14,11 @@ extern "C" {
 #include <libswscale/swscale.h>
 }
 
+using namespace std;
 
 class someFFMpeg {
 public:
 	static void saveAVFrameAsJPEG(AVFrame *frame, string path, int quality);
 };
+
+#endif 
