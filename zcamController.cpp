@@ -95,9 +95,7 @@ struct CameraState {
     double confidence_threshold = 0.6;  // Only apply changes if confidence > 60%
     int changes_applied = 0;
 
-public:
-
-    ZCAMController(const json& config, const int cam_idx) {
+    ZCAMController::ZCAMController(const json& config, const int cam_idx) {
 
         rtsp_url = "rtsp://" + ip + "/live_stream";
         http_base_url = "http://" + ip + "/ctrl";
@@ -116,12 +114,12 @@ public:
 
     }
     
-    ~ZCAMController() {
+    ZCAMController::~ZCAMController() {
         cleanup();
         avformat_network_deinit();
     }
     
-    ExposureMetrics analyzeExposure(const std::vector<uint8_t>& rgb_data, int width, int height) {
+    ExposureMetrics ZCAMController::analyzeExposure(const std::vector<uint8_t>& rgb_data, int width, int height) {
 
         ExposureMetrics metrics;
         
@@ -200,7 +198,7 @@ public:
         return metrics;
     }
     
-    double calculateExposureScore(const ExposureMetrics& metrics) {
+    double ZCAMController::calculateExposureScore(const ExposureMetrics& metrics) {
         double score = 100.0;
         
         // Penalize brightness deviation from target
@@ -226,7 +224,7 @@ public:
         return std::max(0.0, std::min(100.0, score));
     }
     
-    int findClosestISO(int target_iso) {
+    int ZCAMController::findClosestISO(int target_iso) {
         auto it = std::lower_bound(iso_values.begin(), iso_values.end(), target_iso);
         if (it == iso_values.end()) return iso_values.back();
         if (it == iso_values.begin()) return iso_values.front();
@@ -237,7 +235,7 @@ public:
         return (target_iso - lower < upper - target_iso) ? lower : upper;
     }
     
-    string findClosestAperture(double target_f) {
+    string ZCAMController::findClosestAperture(double target_f) {
         double min_diff = std::numeric_limits<double>::max();
         std::string closest = aperture_values[0];
         
@@ -253,7 +251,7 @@ public:
         return closest;
     }
     
-    double calculateSunAngleFactor() {
+    double ZCAMController::calculateSunAngleFactor() {
         auto now = std::chrono::system_clock::now();
         auto time_t = std::chrono::system_clock::to_time_t(now);
         auto tm = *std::localtime(&time_t);
@@ -270,7 +268,7 @@ public:
         }
     }
 
-   ZCAMSettings recommendSettings(const ExposureMetrics& metrics) {
+   ZCAMSettings ZCAMController::recommendSettings(const ExposureMetrics& metrics) {
 
         ZCAMSettings settings;
         settings.iso = camera_state.current_iso;
@@ -449,7 +447,7 @@ public:
         return result;
     }
     
-    double getSunAngleFactor() {
+    double ZCAMController::getSunAngleFactor() {
         auto now = std::chrono::system_clock::now();
         auto time_t = std::chrono::system_clock::to_time_t(now);
         auto tm = *std::localtime(&time_t);
@@ -466,7 +464,7 @@ public:
         }
     }
     
-    bool connect() {
+    bool ZCAMController::connect() {
         std::cout << "🔌 Connecting to ZCAM..." << std::endl;
         
         // Allocate format context
@@ -521,7 +519,7 @@ public:
         return true;
     }
     
-    bool setupDecoderForStream() {
+    bool ZCAMController::setupDecoderForStream() {
         std::cout << "🔧 Setting up H.264 decoder for stream #" << video_stream_index << "..." << std::endl;
         
         // Create H.264 decoder directly
@@ -557,7 +555,7 @@ public:
         return true;
     }
     
-    bool findVideoStreamManually() {
+    bool ZCAMController::findVideoStreamManually() {
         std::cout << "🔍 Manual stream detection..." << std::endl;
         
         // First, check stream parameters directly if available
@@ -683,7 +681,7 @@ public:
         return false;
     }
     
-    bool setupDecoder() {
+    bool ZCAMController::setupDecoder() {
         std::cout << "🔧 Setting up decoder..." << std::endl;
         
         if (video_stream_index < 0 || video_stream_index >= (int)format_ctx->nb_streams) {
@@ -770,7 +768,7 @@ public:
         return true;
     }
     
-    bool captureOneFrame(std::vector<uint8_t>& rgb_data, int& width, int& height) {
+    bool ZCAMController::captureOneFrame(std::vector<uint8_t>& rgb_data, int& width, int& height) {
         if (!format_ctx || !codec_ctx) {
             std::cout << "❌ Not connected" << std::endl;
             return false;
@@ -902,7 +900,7 @@ public:
     }
 
     
-    void cleanup() {
+    void ZCAMController::cleanup() {
         if (sws_ctx) {
             sws_freeContext(sws_ctx);
             sws_ctx = nullptr;
@@ -935,7 +933,7 @@ public:
         return response;
     }
 
-    bool getCurrentCameraSettings() {
+    bool ZCAMController::getCurrentCameraSettings() {
 
         cout << "🔍 Reading current ZCAM E8 Z2 settings..." << endl;
         
