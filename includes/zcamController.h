@@ -8,7 +8,7 @@ using namespace std;
 using json = nlohmann::json;
 
 class ZCAMController {
-	
+
 private:
 	bool stop = false;
 	string server;
@@ -21,6 +21,9 @@ private:
     string http_base_url;
 
 	bool isOperatingHours();
+	bool readCurrentSettings();
+	bool initializeStream();
+	bool captureFrame(std::vector<uint8_t>& rgb_data, int& width, int& height);
 
 public:
     ZCAMController(const json& config, const int cam_idx);
