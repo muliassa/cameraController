@@ -6,26 +6,26 @@
 #include <ctime>
 #include <iomanip>
 #include <sstream>
-#include <peocl_logger.h>
+#include <someLogger.h>
 
-PeoclLogger *PeoclLogger::_instance;
+someLogger *someLogger::_instance;
 
-PeoclLogger *PeoclLogger::getInstance(string filename, PeoclLogLevel level) {
+someLogger *someLogger::getInstance(string filename, PeoclLogLevel level) {
     if (_instance == nullptr)
-        _instance = new PeoclLogger(filename, level);
+        _instance = new someLogger(filename, level);
     return _instance;
 }
 
-PeoclLogger *PeoclLogger::getInstance() {
+someLogger *someLogger::getInstance() {
     return _instance;
 }
 
-PeoclLogger::PeoclLogger(string filename, PeoclLogLevel level) {
+someLogger::someLogger(string filename, PeoclLogLevel level) {
     fp = fopen(filename.c_str(), "w");
     defaultLogLevel = level;
 }
 
-void PeoclLogger::log(string message, Colors color, PeoclLogLevel override) {
+void someLogger::log(string message, Colors color, PeoclLogLevel override) {
     PeoclLogLevel level = override == PeoclLogLevel::DEFAULT ? defaultLogLevel : override;
     // timeStamp
     uint64_t ts = timeSinceEpochMilli();
@@ -41,15 +41,15 @@ void PeoclLogger::log(string message, Colors color, PeoclLogLevel override) {
     }
 }
 
-void PeoclLogger::error(string message) {
+void someLogger::error(string message) {
     log("[ERROR] " + message);
 }
 
-void PeoclLogger::close() {
+void someLogger::close() {
     fclose(fp);
 }
 
-time_t PeoclLogger::fileTimeToTimeT(const fs::file_time_type& ftime) {
+time_t someLogger::fileTimeToTimeT(const fs::file_time_type& ftime) {
     // Convert file_time to system_clock time_point
     auto sctp = std::chrono::time_point_cast<std::chrono::system_clock::duration>(
         ftime - fs::file_time_type::clock::now() + std::chrono::system_clock::now()
@@ -58,24 +58,24 @@ time_t PeoclLogger::fileTimeToTimeT(const fs::file_time_type& ftime) {
     return std::chrono::system_clock::to_time_t(sctp);
 }
 
-string PeoclLogger::getTimeString(time_t timeStamp) {
+string someLogger::getTimeString(time_t timeStamp) {
     // Format the time as desired
     stringstream ss;
     ss << std::put_time(std::localtime(&timeStamp), "%H:%M:%S");    
     return ss.str();
 }
  
-string PeoclLogger::getTimeString(const fs::file_time_type& ftime) {
+string someLogger::getTimeString(const fs::file_time_type& ftime) {
     return getTimeString(fileTimeToTimeT(ftime));
 }
 
-string PeoclLogger::getCurrentTimeString() {
+string someLogger::getCurrentTimeString() {
     auto now = std::chrono::system_clock::now();
     std::time_t current_time = std::chrono::system_clock::to_time_t(now);
     return getTimeString(current_time);
 }
 
-string PeoclLogger::getCurrentDateString() {
+string someLogger::getCurrentDateString() {
     // Get current time
     auto now = std::chrono::system_clock::now();
     std::time_t current_time = std::chrono::system_clock::to_time_t(now);
@@ -87,18 +87,18 @@ string PeoclLogger::getCurrentDateString() {
     return ss.str();
 }
 
-time_t PeoclLogger::now() {
+time_t someLogger::now() {
     // Get current time
     auto clock = std::chrono::system_clock::now();
     return std::chrono::system_clock::to_time_t(clock);
 }
 
-uint64_t PeoclLogger::timeSinceEpochMilli() {
+uint64_t someLogger::timeSinceEpochMilli() {
     using namespace std::chrono;
     return duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
 }
 
-vector<string> PeoclLogger::split(const string& str, char delimiter) {
+vector<string> someLogger::split(const string& str, char delimiter) {
     vector<std::string> tokens;
     stringstream ss(str);
     string token;
@@ -108,5 +108,7 @@ vector<string> PeoclLogger::split(const string& str, char delimiter) {
     return tokens;
 }
 
-
-
+json someLogger::loadConfig(string path) {
+    ifstream ifs(path);
+    return json::parse(ifs);
+}

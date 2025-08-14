@@ -1,3 +1,5 @@
+#include <zcamConteoller.h>
+
 #include <iostream>
 #include <string>
 #include <vector>
@@ -9,12 +11,12 @@
 #include <curl/curl.h>
 #include <json/json.h>
 
-#include <peocl_logger.h>
-
+#include <someLogger.h>
 #include <someNetwork.h>
 #include <someFFMpeg.h>
 
 using namespace std;
+
 
 struct ExposureMetrics {
 
@@ -70,19 +72,6 @@ struct CameraState {
     double brightness_tolerance = 15.0;
 };
 
-struct LogEntry {
-    string timestamp;
-    ExposureMetrics metrics;
-    ZCAMSettings settings;
-    double sun_factor;
-};
-
-class ZCAMController {
-private:
-
-    string camera_ip;
-    string rtsp_url;
-    string http_base_url;
     CURL *curl;
 
     CameraState camera_state;
@@ -105,18 +94,16 @@ private:
     bool auto_adjust_enabled = true;
     double confidence_threshold = 0.6;  // Only apply changes if confidence > 60%
     int changes_applied = 0;
-    
-    // History for learning
-    std::vector<LogEntry> exposure_history;
 
 public:
 
-    ZCAMController(const string& camera_ip) {
+    ZCAMController(const json& config, const int cam_idx) {
 
-        this->camera_ip = camera_ip;
-
-        rtsp_url = "rtsp://" + camera_ip + "/live_stream";
-        http_base_url = "http://" + camera_ip;
+        rtsp_url = "rtsp://" + ip + "/live_stream";
+        http_base_url = "http://" + ip + "/ctrl";
+        camera_ip = config["ipaddr"][cam_idx].get<string>();
+        camera_id = config["camera"][cam_idx].get<string>();
+        server = config["server"].get<string>();
         
         // Initialize FFmpeg
         #if LIBAVFORMAT_VERSION_INT < AV_VERSION_INT(58, 9, 100)
@@ -1043,124 +1030,439 @@ public:
         
         return resp.status == 200;
     }
+    
+    bool ZCAMController::applySetting(const std::string& param, const std::string& value) {
+        std::string endpoint = "/ctrl/set?" + param + "=" + value;
+        HTTPResponse response = sendHTTPRequest(endpoint);
+        
+        if (response.success) {
+            Json::Value root;
+            Json::Reader reader;
+            if (reader.parse(response.data, root) && 
+                root.isMember("code") && root["code"].asInt() == 0) {
+                return true;
+            }
+        }
+        return false;
+    }
+    
+    HTTPResponse ZCAMController::sendHTTPRequest(const std::string& endpoint) {
+        HTTPResponse response;
+        if (!curl) return response;
+        
+        std::string url = http_base_url + endpoint;
+        
+        curl_easy_reset(curl);
+        curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
+        curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback);
+        curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response);
+        curl_easy_setopt(curl, CURLOPT_TIMEOUT, 5L);
+        curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, 3L);
+        
+        CURLcode res = curl_easy_perform(curl);
+        curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &response.response_code);
+        response.success = (res == CURLE_OK && response.response_code == 200);
+        
+        return response;
+    }
+    
+    ExposureMetrics ZCAMController::analyzeExposure(const std::vector<uint8_t>& rgb_data, int width, int height) {
+        ExposureMetrics metrics;
+        
+        if (rgb_data.empty()) return metrics;
+        
+        metrics.total_pixels = width * height;
+        
+        double sum_brightness = 0.0;
+        double sum_squared = 0.0;
+        int highlight_count = 0;
+        int shadow_count = 0;
+        
+        // Analyze pixels
+        for (int i = 0; i < metrics.total_pixels; i++) {
+            size_t pixel_idx = static_cast<size_t>(i) * 3;
+            if (pixel_idx + 2 < rgb_data.size()) {
+                uint8_t r = rgb_data[pixel_idx];
+                uint8_t g = rgb_data[pixel_idx + 1];
+                uint8_t b = rgb_data[pixel_idx + 2];
+                
+                uint8_t gray = static_cast<uint8_t>(0.299 * r + 0.587 * g + 0.114 * b);
+                
+                sum_brightness += gray;
+                sum_squared += gray * gray;
+                
+                if (gray >= 250) highlight_count++;
+                if (gray <= 5) shadow_count++;
+            }
+        }
+        
+        if (metrics.total_pixels > 0) {
+            metrics.brightness = sum_brightness / metrics.total_pixels;
+            
+            double variance = (sum_squared / metrics.total_pixels) - (metrics.brightness * metrics.brightness);
+            metrics.contrast = std::sqrt(std::max(0.0, variance));
+            
+            metrics.highlights_clipped = (highlight_count * 100.0) / metrics.total_pixels;
+            metrics.shadows_clipped = (shadow_count * 100.0) / metrics.total_pixels;
+            
+            // Simplified exposure score
+            double score = 100.0;
+            
+            // Brightness penalty
+            double brightness_error = std::abs(metrics.brightness - settings.target_brightness);
+            score -= std::min(brightness_error * 1.5, 50.0);
+            
+            // Clipping penalties
+            score -= metrics.highlights_clipped * 3.0;
+            score -= metrics.shadows_clipped * 2.0;
+            
+            // Contrast bonus/penalty
+            if (metrics.contrast < 15.0) {
+                score -= (15.0 - metrics.contrast) * 1.0;
+            }
+            
+            metrics.exposure_score = std::max(0.0, std::min(100.0, score));
+        }
+        
+        return metrics;
+    }
+    
+    bool ZCAMController::adjustExposure(const ExposureMetrics& metrics) {
+        double brightness_error = metrics.brightness - settings.target_brightness;
+        bool needs_adjustment = std::abs(brightness_error) > settings.brightness_tolerance;
+        
+        if (!needs_adjustment && metrics.exposure_score >= 70.0) {
+            return false; // No adjustment needed
+        }
+        
+        std::cout << "🔧 Adjusting exposure..." << std::endl;
+        std::cout << "   Current: B=" << metrics.brightness << ", C=" << metrics.contrast 
+                 << ", Score=" << metrics.exposure_score << std::endl;
+        
+        bool changed = false;
+        std::string reason;
+        
+        // AGGRESSIVE ISO STRATEGY - Use full range, minimize iris changes
+        if (brightness_error < -settings.brightness_tolerance) {
+            // Too dark - use full ISO range before touching iris
+            int new_iso = settings.iso;
+            
+            if (settings.iso < 2500) {
+                new_iso = 2500;  // Jump to high native
+                reason = "Dark - jump to native ISO 2500";
+            } else if (settings.iso < 6400) {
+                new_iso = 6400;  // Good quality range
+                reason = "Still dark - ISO to 6400";
+            } else if (settings.iso < 12800) {
+                new_iso = 12800; // Acceptable quality
+                reason = "Very dark - ISO to 12800";
+            } else if (settings.iso < 25600) {
+                new_iso = 25600; // High but usable
+                reason = "Extremely dark - ISO to 25600";
+            } else if (settings.iris != settings.min_iris) {
+                // Only open iris after exhausting ISO options
+                if (applySetting("iris", settings.min_iris)) {
+                    reason = "Max ISO reached - opened iris f/" + settings.iris + "→f/" + settings.min_iris;
+                    settings.iris = settings.min_iris;
+                    changed = true;
+                }
+            }
+            
+            // Apply ISO change
+            if (new_iso != settings.iso) {
+                if (applySetting("iso", std::to_string(new_iso))) {
+                    settings.iso = new_iso;
+                    changed = true;
+                }
+            }
+            
+        } else if (brightness_error > settings.brightness_tolerance) {
+            // Too bright - PRIORITIZE keeping good iris, reduce ISO aggressively
+            
+            // Check if we can solve with ISO reduction first
+            if (settings.iso > 400) {
+                int new_iso = settings.iso;
+                
+                if (settings.iso > 6400) {
+                    new_iso = settings.iso / 2;  // Big steps down from high ISO
+                    reason = "Bright - large ISO reduction " + std::to_string(settings.iso) + "→" + std::to_string(new_iso);
+                } else if (settings.iso > 2500) {
+                    new_iso = 1000;  // Step down to medium
+                    reason = "Moderately bright - ISO to 1000";
+                } else if (settings.iso > 500) {
+                    new_iso = 400;   // Minimum ISO
+                    reason = "Bright - minimum ISO 400";
+                }
+                
+                if (new_iso != settings.iso) {
+                    if (applySetting("iso", std::to_string(new_iso))) {
+                        settings.iso = new_iso;
+                        changed = true;
+                    }
+                }
+            } else if (settings.iris != settings.max_iris && std::stod(settings.iris) < std::stod(settings.max_iris)) {
+                // Only close iris after reaching minimum ISO
+                std::string new_iris;
+                double current_iris = std::stod(settings.iris);
+                
+                if (current_iris < 11) {
+                    new_iris = "11";
+                } else if (current_iris < 14) {
+                    new_iris = "14";
+                } else {
+                    new_iris = settings.max_iris;
+                }
+                
+                if (applySetting("iris", new_iris)) {
+                    reason = "Very bright - closed iris f/" + settings.iris + "→f/" + new_iris + " (min ISO reached)";
+                    settings.iris = new_iris;
+                    changed = true;
+                }
+            }
+        }
+        
+        if (changed) {
+            adjustment_count++;
+            std::cout << "   ✅ " << reason << std::endl;
+            
+            if (log_file.is_open()) {
+                auto now = std::chrono::system_clock::now();
+                auto time_t = std::chrono::system_clock::to_time_t(now);
+                auto tm = *std::localtime(&time_t);
+                
+                log_file << "[" << std::put_time(&tm, "%H:%M:%S") << "] ADJUSTMENT #" << adjustment_count 
+                         << " | B:" << std::fixed << std::setprecision(1) << metrics.brightness
+                         << " C:" << metrics.contrast << " S:" << metrics.exposure_score
+                         << " | ISO:" << settings.iso << " f/" << settings.iris 
+                         << " | " << reason << std::endl;
+            }
+            
+            // Wait for camera to apply changes
+            std::this_thread::sleep_for(std::chrono::seconds(3));
+        } else {
+            std::cout << "   ⚠️ No suitable adjustment available" << std::endl;
+        }
+        
+        return changed;
+    }
+    
+    bool ZCAMController::captureFrame(std::vector<uint8_t>& rgb_data, int& width, int& height) {
+        if (!format_ctx || !codec_ctx) return false;
+        
+        AVPacket *packet = av_packet_alloc();
+        AVFrame *frame = av_frame_alloc();
+        AVFrame *rgb_frame = av_frame_alloc();
+        
+        if (!packet || !frame || !rgb_frame) {
+            if (packet) av_packet_free(&packet);
+            if (frame) av_frame_free(&frame);
+            if (rgb_frame) av_frame_free(&rgb_frame);
+            return false;
+        }
+        
+        bool success = false;
+        int packets_read = 0;
+        
+        while (packets_read < 100 && keep_running) {
+            int ret = av_read_frame(format_ctx, packet);
+            packets_read++;
+            
+            if (ret < 0) break;
+            
+            if (packet->stream_index == video_stream_index) {
+                ret = avcodec_send_packet(codec_ctx, packet);
+                if (ret == 0) {
+                    ret = avcodec_receive_frame(codec_ctx, frame);
+                    if (ret == 0) {
+                        width = frame->width;
+                        height = frame->height;
+                        
+                        if (!sws_ctx) {
+                            sws_ctx = sws_getContext(
+                                width, height, (AVPixelFormat)frame->format,
+                                width, height, AV_PIX_FMT_RGB24,
+                                SWS_BILINEAR, nullptr, nullptr, nullptr
+                            );
+                        }
+                        
+                        if (sws_ctx) {
+                            int rgb_size = av_image_get_buffer_size(AV_PIX_FMT_RGB24, width, height, 1);
+                            rgb_data.resize(rgb_size);
+                            
+                            av_image_fill_arrays(rgb_frame->data, rgb_frame->linesize,
+                                                rgb_data.data(), AV_PIX_FMT_RGB24, width, height, 1);
+                            
+                            sws_scale(sws_ctx, frame->data, frame->linesize, 0, height,
+                                    rgb_frame->data, rgb_frame->linesize);
+                            
+                            success = true;
+                        }
+                        break;
+                    }
+                }
+            }
+            av_packet_unref(packet);
+        }
+        
+        av_packet_free(&packet);
+        av_frame_free(&frame);
+        av_frame_free(&rgb_frame);
+        
+        return success;
+    }
+    
+    bool ZCAMController::readCurrentSettings() {
+        // Get ISO
+        HTTPResponse iso_resp = sendHTTPRequest("/ctrl/get?k=iso");
+        if (iso_resp.success) {
+            Json::Value root;
+            Json::Reader reader;
+            if (reader.parse(iso_resp.data, root) && root.isMember("value")) {
+                settings.iso = std::stoi(root["value"].asString());
+            }
+        }
+        
+        // Get Iris
+        HTTPResponse iris_resp = sendHTTPRequest("/ctrl/get?k=iris");
+        if (iris_resp.success) {
+            Json::Value root;
+            Json::Reader reader;
+            if (reader.parse(iris_resp.data, root) && root.isMember("value")) {
+                settings.iris = root["value"].asString();
+            }
+        }
+        
+        return iso_resp.success && iris_resp.success;
+    }
+    
+    bool ZCAMController::detectVideoStream() {
+        AVPacket *pkt = av_packet_alloc();
+        if (!pkt) return false;
+        
+        for (int i = 0; i < 30; i++) {
+            int ret = av_read_frame(format_ctx, pkt);
+            if (ret < 0) break;
+            
+            if (pkt->size > 1000) {
+                uint8_t *data = pkt->data;
+                if (pkt->size >= 4 && 
+                    ((data[0] == 0x00 && data[1] == 0x00 && data[2] == 0x00 && data[3] == 0x01) ||
+                     (data[0] == 0x00 && data[1] == 0x00 && data[2] == 0x01))) {
+                    video_stream_index = pkt->stream_index;
+                    break;
+                }
+            }
+            av_packet_unref(pkt);
+        }
+        
+        av_packet_free(&pkt);
+        
+        if (video_stream_index < 0) return false;
+        
+        // Setup H.264 decoder
+        codec = avcodec_find_decoder(AV_CODEC_ID_H264);
+        if (!codec) return false;
+        
+        codec_ctx = avcodec_alloc_context3(codec);
+        if (!codec_ctx) return false;
+        
+        codec_ctx->codec_type = AVMEDIA_TYPE_VIDEO;
+        codec_ctx->codec_id = AV_CODEC_ID_H264;
+        
+        return avcodec_open2(codec_ctx, codec, nullptr) >= 0;
+    }
+    
+    bool ZCAMController::initializeStream() {
+        std::cout << "🔌 Connecting to RTSP..." << std::endl;
+        
+        format_ctx = avformat_alloc_context();
+        if (!format_ctx) return false;
+        
+        AVDictionary *options = nullptr;
+        av_dict_set(&options, "rtsp_transport", "tcp", 0);
+        av_dict_set(&options, "stimeout", "10000000", 0);
+        av_dict_set(&options, "max_delay", "3000000", 0);
+        
+        int ret = avformat_open_input(&format_ctx, rtsp_url.c_str(), nullptr, &options);
+        av_dict_free(&options);
+        
+        if (ret < 0) return false;
+        
+        // Skip stream info analysis, use manual detection
+        if (!detectVideoStream()) return false;
+        
+        std::cout << "✅ RTSP stream ready" << std::endl;
+        return true;
+    }
+
+    ZCAMController::stop() {
+        stop = true;
+    }
+    
+    bool ZCAMController::isOperatingHours() {
+        auto now = std::chrono::system_clock::now();
+        auto time_t = std::chrono::system_clock::to_time_t(now);
+        auto tm = *std::localtime(&time_t);
+        
+        return (tm.tm_hour >= start_hour && tm.tm_hour < end_hour);
+    }
+
+    ZCAMController::singleRun() {
+
+        if (!isOperatingHours()) {
+            std::cout << "😴 Outside operating hours, sleeping..." << std::endl;
+            continue;
+        }
+
+        if (!initializeStream()) {
+            std::cout << "❌ Failed to initialize stream" << std::endl;
+            return;
+        }
+        
+        if (!readCurrentSettings()) {
+            std::cout << "❌ Failed to read camera settings" << std::endl;
+            return;
+        }
+        
+        cout << "✅ Current settings: ISO " << settings.iso << ", f/" << settings.iris << std::endl;
+            
+        std::vector<uint8_t> rgb_data;
+        int width, height;
+            
+        if (captureFrame(rgb_data, width, height)) {
+            ExposureMetrics metrics = analyzeExposure(rgb_data, width, height);    
+                std::cout << "   Brightness: " << std::fixed << std::setprecision(1) 
+                         << metrics.brightness << "/255, Contrast: " << metrics.contrast 
+                         << ", Score: " << metrics.exposure_score << "/100" << std::endl;
+                
+                adjustExposure(metrics);
+        } else {
+            std::cout << "   ⚠️ Frame capture failed" << std::endl;
+        }      
+
+
+        nlohmann::json params;
+        params["camera"] = camera_id;
+        params["iso"] = camera_state.current_iso;
+        params["iris"] = camera_state.current_iris;
+        params["mean_brightness"] = exposure_metrics.mean_brightness;
+        params["contrast"] = exposure_metrics.contrast;
+        params["exposure_score"] = exposure_metrics.exposure_score;      
+
+        someNetwork net;
+        net.https_request(server, "/api/caminfo", http::verb::post, params);
+
+    }
+
+    ZCAMController::runLoop() {
+
+        while (!stop) {
+            singleRun()
+            std::this_thread::sleep_for(std::chrono::seconds(300)); // 5 MIN            
+        }
+
+    }
 
 
 
 };
-
-bool monitorCamera(ZCAMController& controller) {
-
-        // Connect to camera
-        if (!controller.connect()) {
-            std::cout << "❌ Failed to connect to camera" << std::endl;
-            return -1;
-        }
-
-        auto autoAdjust = controller.getAutoAdjustEnabled();
-
-        // Get initial camera settings
-        controller.getCurrentCameraSettings();
-
-        auto cameraState = controller.getCameraState();
-        
-        std::cout << "\n🎬 Starting exposure monitoring with auto-control..." << std::endl;
-        std::cout << "📊 Target brightness: " << cameraState.target_brightness << "/255" << std::endl;
-        std::cout << "⏱️  Analysis interval: 15 seconds" << std::endl;
-        std::cout << "🤖 Auto-adjust: " << (autoAdjust ? "ENABLED" : "DISABLED") << std::endl;
-        std::cout << "🎚️ Confidence threshold: " << (controller.getConfidenceThreshold() * 100) << "%" << std::endl;
-        std::cout << "Press Ctrl+C to stop\n" << std::endl;
-        
-        // Try to capture ONE frame
-        std::vector<uint8_t> rgb_data;
-        int width, height;
-        
-        if (controller.captureOneFrame(rgb_data, width, height)) {
-
-            std::cout << "\n🎉 SUCCESS!" << std::endl;
-            std::cout << "📊 Frame captured: " << width << "x" << height << std::endl;
-            std::cout << "📊 RGB data size: " << rgb_data.size() << " bytes" << std::endl;
-
-            // Analyze exposure
-                ExposureMetrics metrics = controller.analyzeExposure(rgb_data, width, height);
-                
-                cout << "📊 Brightness: " << fixed << setprecision(1) 
-                         << metrics.mean_brightness << "/255";
-                
-                if (metrics.mean_brightness < 100) {
-                    std::cout << " (DARK 🌙)";
-                } else if (metrics.mean_brightness > 180) {
-                    std::cout << " (BRIGHT ☀️)";
-                } else {
-                    std::cout << " (GOOD ✅)";
-                }
-                cout << std::endl;
-                
-                std::cout << "📊 Contrast: " << metrics.contrast << std::endl;
-                std::cout << "📊 Highlights clipped: " << metrics.clipped_highlights << "%" << std::endl;
-                std::cout << "📊 Shadows clipped: " << metrics.clipped_shadows << "%" << std::endl;
-                std::cout << "📊 Exposure score: " << metrics.exposure_score << "/100" << std::endl;
-                
-                // Get camera adjustment suggestions
-
-                ZCAMSettings suggested = controller.recommendSettings(metrics);
-
-                cout << "💡 Analysis: " << suggested.reasoning << std::endl;
-                cout << "   ISO: " << controller.getCurrentISO() << " → " << suggested.iso;
-                cout << "💡 Suggested ISO: " << suggested.iso << std::endl;
-                
-                if (suggested.iso != controller.getCurrentISO() || 
-                    abs(suggested.exposure_compensation - controller.getCurrentEV()) > 0.1) {
-                    std::cout << "🔧 Suggested ZCAM adjustments:" << std::endl;
-                    std::cout << "   ISO: " << controller.getCurrentISO() << " → " << suggested.iso;
-                    if (suggested.iso == 500 || suggested.iso == 2500) {
-                        std::cout << " (native)";
-                    }
-                    std::cout << std::endl;
-                    std::cout << "   EV: " << controller.getCurrentEV() << " → " << suggested.exposure_compensation << std::endl;
-                    std::cout << "   Aperture: f/" << controller.getCurrentAperture() << " → f/" << suggested.aperture << std::endl;
-                }
-            
-        } else {
-            std::cout << "\n❌ FAILED to capture frame" << std::endl;
-            std::cout << "🔧 Check camera streaming and network connection" << std::endl;
-            return false;
-        }
-        
-        std::cout << "\n✅ Test completed successfully!" << endl;
-
-        return true;
-
-}
-
-someNetwork::Response postReport(const string& endpoint, nlohmann::json params) {
-    someNetwork network;
-    return network.https_request("surfai.peocl.com", endpoint, http::verb::post, params);
-}
-
-// Simple test of just the frame capture
-int main(int argc, char* argv[]) {
-    
-    PeoclLogger::getInstance("./cameraController.log")->log("start controller");
-
-    try {
-
-        ZCAMController rightController("192.168.150.201");
-        monitorCamera(rightController);
-        
-        ZCAMController leftController("192.168.150.202");
-        monitorCamera(leftController);
-
-        nlohmann::json params;
-        params["options"] = leftController.getOptions();
-        params["LEFT"] = leftController.toJson(); 
-        params["RIGHT"] = rightController.toJson(); 
-        postReport("/api/caminfo", params);
-
-        return 0;
-        
-    } catch (const std::exception& e) {
-        std::cerr << "Error: " << e.what() << std::endl;
-        return -1;
-    }
-}
-
