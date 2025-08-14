@@ -15,6 +15,10 @@ json config;
 string root;
 ZCAMController *camera;
 
+	if (argc < 3) {
+		cout << "usage: cameraController <host> <cam_id>" << endl;
+	}
+
 	string site = argv[1]; 
 
 	string cam_id = argv[2];
@@ -31,7 +35,7 @@ ZCAMController *camera;
 
 	camera = new ZCAMController(config, stoi(cam_id));
 
-    thread camThread([leftCamera]() {
+    thread camThread([camera]() {
         camera->run();
     });
 
