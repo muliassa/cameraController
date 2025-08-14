@@ -1385,7 +1385,7 @@ struct ZCAMSettings {
 
         if (!isOperatingHours()) {
             std::cout << "😴 Outside operating hours, sleeping..." << std::endl;
-            continue;
+            return;
         }
 
         if (!initializeStream()) {
@@ -1411,7 +1411,7 @@ struct ZCAMSettings {
                 
                 adjustExposure(metrics);
         } else {
-            std::cout << "   ⚠️ Frame capture failed" << std::endl;
+            cout << "   ⚠️ Frame capture failed" << std::endl;
         }      
 
 

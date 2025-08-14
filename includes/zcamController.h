@@ -80,6 +80,7 @@ private:
     bool adjustExposure(const ExposureMetrics& metrics);
     bool applySetting(const string& param, const string& value);
 	bool initializeStream();
+    bool detectVideoStream();
 	bool captureFrame(vector<uint8_t>& rgb_data, int& width, int& height);
     void singleRun();
 
