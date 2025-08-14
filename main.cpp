@@ -2,6 +2,7 @@
 #include <iostream>
 
 #include <zcamController.h>
+#include <someService.h>
 #include <someLogger.h>
 
 using namespace std;
