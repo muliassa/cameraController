@@ -110,8 +110,15 @@ ZCAMController *rightCamera;
 
     json cameras = config["cameras"];
 
+	cout << "D3" << endl;
+
 	leftCamera = new ZCAMController(config, 0);
+
+	cout << "D2" << endl;
+
 	rightCamera = new ZCAMController(config, 1);
+
+	cout << "D3" << endl;
 
     thread leftThread([leftCamera]() {
         leftCamera->run();
@@ -136,4 +143,3 @@ ZCAMController *rightCamera;
     }
 
 }
-
