@@ -73,8 +73,6 @@ private:
     string rtsp_url;
     string http_base_url;
 
-    ofstream log_file;
-
     CameraSettings settings;
     CameraState camera_state;
     ExposureMetrics exposure_metrics;

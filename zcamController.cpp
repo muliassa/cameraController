@@ -398,28 +398,6 @@ using namespace std;
             }
         }
         
-        if (changed) {
-            adjustment_count++;
-            std::cout << "   ✅ " << reason << std::endl;
-            
-            if (log_file.is_open()) {
-                auto now = std::chrono::system_clock::now();
-                auto time_t = std::chrono::system_clock::to_time_t(now);
-                auto tm = *std::localtime(&time_t);
-                
-                log_file << "[" << std::put_time(&tm, "%H:%M:%S") << "] ADJUSTMENT #" << adjustment_count 
-                         << " | B:" << std::fixed << std::setprecision(1) << metrics.brightness
-                         << " C:" << metrics.contrast << " S:" << metrics.exposure_score
-                         << " | ISO:" << settings.iso << " f/" << settings.iris 
-                         << " | " << reason << std::endl;
-            }
-            
-            // Wait for camera to apply changes
-            this_thread::sleep_for(chrono::seconds(3));
-        } else {
-            std::cout << "   ⚠️ No suitable adjustment available" << std::endl;
-        }
-        
         return changed;
     }
     
