@@ -64,6 +64,9 @@ struct HTTPResponse {
 class ZCAMController {
 
 private:
+	
+	atomic<bool> keep_running{true};
+	
 	bool stop = false;
 	string server;
     int start_hour = 6;   // 6 AM
@@ -79,6 +82,8 @@ private:
     CameraSettings settings;
     CameraState camera_state;
     ExposureMetrics exposure_metrics;
+
+    int adjustment_count = 0;
 
 	bool isOperatingHours();
 	bool readCurrentSettings();
