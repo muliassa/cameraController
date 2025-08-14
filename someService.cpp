@@ -74,27 +74,27 @@ UrlParts splitUrl(const string& url) {
 }
 
 void someService::post_response(json request, string status, json response) {
-    Network network;
+    someNetwork net;
     auto params = json();
     params["request"] = request;
     params["status"] = status;
     params["host"] = host;
     if (!response.empty()) params["response"] = response;
-    network.https_request(server, "/apis/requests/response", http::verb::post, params);
+    net.https_request(server, "/apis/requests/response", http::verb::post, params);
 }
 
 void someService::post_status(string status) {
-    Network network;
+    someNetwork net;
     auto params = json();
     params["service"] = serviceName;
     params["host"] = host;
     params["status"] = status;
-    network.https_request(server, "/apis/requests/status", http::verb::post, params);
+    net.https_request(server, "/apis/requests/status", http::verb::post, params);
 }
 
 void someService::run() {
 
-    someNetwork network;
+    someNetwork net;
 
     post_status("init");
 
@@ -104,7 +104,7 @@ void someService::run() {
 
         try {
 
-            auto response = network.https_get(server, "/apis/requests?service=" + serviceName + "&host=" + host);
+            auto response = net.https_get(server, "/apis/requests?service=" + serviceName + "&host=" + host);
 
             if (response.timeout) continue;
 
