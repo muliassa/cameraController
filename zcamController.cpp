@@ -637,25 +637,23 @@ using namespace std;
     std::string getCurrentAperture() const { return camera_state.current_aperture; }
     int getCurrentShutterAngle() const { return camera_state.current_shutter_angle; }
 
-    nlohmann::json getOptions() {
+    nlohmann::json ZCAMController::getOptions() {
         nlohmann::json options;
         options["iso_options"] = camera_state.iso_options;
         options["iris_options"] = camera_state.iris_options;
-        options["shutter_options"] = camera_state.shutter_options;
         options["target_brightness"] = camera_state.target_brightness;
         options["brightness_range"] = "112-144";
         options["contrast_range"] = "25-60";
         return options;
     }
 
-    nlohmann::json toJson() { 
+    nlohmann::json ZCAMController::toJson() { 
         nlohmann::json params;
         params["iso"] = camera_state.current_iso;
         params["iris"] = camera_state.current_iris;
-        params["shutter"] = camera_state.current_shutter_angle;
-        params["mean_brightness"] = exposure_metrics.mean_brightness;
+        params["brightness"] = exposure_metrics.brightness;
         params["contrast"] = exposure_metrics.contrast;
-        params["exposure_score"] = exposure_metrics.exposure_score;
+        params["exposure"] = exposure_metrics.exposure_score;
         return params;
     }
     
