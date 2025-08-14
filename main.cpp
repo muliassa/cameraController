@@ -10,8 +10,8 @@ using json = nlohmann::json;
 
 json config;
 string root;
-ZCAMController *left;
-ZCAMController *right;
+ZCAMController *leftCamera;
+ZCAMController *rightCamera;
 
 /*
 bool monitorCamera(ZCAMController& controller) {
@@ -110,15 +110,15 @@ int main(int argc, char* argv[]) {
 
     json cameras = config["cameras"];
 
-	left = new ZCamController(config, 0);
-	right = new ZCamController(config, 1);
+	leftCamera = new ZCamController(config, 0);
+	rightCamera = new ZCamController(config, 1);
 
-    thread leftThread([left]() {
-        left->run();
+    thread leftThread([leftCamera]() {
+        leftCamera->run();
     });
 
-    thread rightThread([right]() {
-        right->run();
+    thread rightThread([rightCamera]() {
+        rightCamera->run();
     });
 
     auto service = new someService(config);
