@@ -48,30 +48,6 @@ struct ZCAMSettings {
     double confidence = 0.0;  // 0-1 how confident we are in this recommendation
 };
 
-struct CameraState {
-    // Current settings (would be read from camera API)
-    int current_iso = 500;
-    nlohmann::json iso_options;
-
-    double current_iris = 10.0;
-    nlohmann::json iris_options;
-
-    double current_ev = 0.0;
-    string current_aperture = "5.6";
-    nlohmann::json ev_options;
-
-    int current_shutter_angle = 180;
-    nlohmann::json shutter_options;
-
-    // Scene analysis
-    double sun_factor = 0.5;
-    string scene_type = "unknown";
-    
-    // Targets
-    double target_brightness = 128.0;
-    double brightness_tolerance = 15.0;
-};
-
     CURL *curl;
 
     CameraState camera_state;
