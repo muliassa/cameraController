@@ -150,7 +150,7 @@ using namespace std;
         std::cout << "🧹 Cleaned up" << std::endl;
     }
 
-    someNetwork::Response ZCAMController::httpRequest(const string& endpoint, const string& method = "GET", const string& data = "") {
+    someNetwork::Response ZCAMController::httpRequest(const string& endpoint, const string& method, const string& data) {
 
         std::cout << "🌐 HTTP Request: " << endpoint << std::endl;
 
