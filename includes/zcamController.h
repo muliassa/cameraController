@@ -77,6 +77,8 @@ private:
     ofstream log_file;
 
     CameraSettings settings;
+    CameraState camera_state;
+    ExposureMetrics exposure_metrics;
 
 	bool isOperatingHours();
 	bool readCurrentSettings();

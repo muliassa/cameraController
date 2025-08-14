@@ -16,9 +16,6 @@
 
 using namespace std;
 
-    CameraState camera_state;
-    ExposureMetrics exposure_metrics;
-
     // FFmpeg components
     AVFormatContext *format_ctx = nullptr;
     AVCodecContext *codec_ctx = nullptr;
