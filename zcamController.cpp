@@ -365,13 +365,13 @@ using namespace std;
     }
     
     // Getters for current settings
-    CameraState getCameraState() { return camera_state; }
-    bool getAutoAdjustEnabled() { return auto_adjust_enabled; }
-    double getConfidenceThreshold() { return confidence_threshold; }
-    int getCurrentISO() const { return camera_state.current_iso; }
-    double getCurrentEV() const { return camera_state.current_ev; }
-    std::string getCurrentAperture() const { return camera_state.current_aperture; }
-    int getCurrentShutterAngle() const { return camera_state.current_shutter_angle; }
+    CameraState ZCAMController::getCameraState() { return camera_state; }
+    bool ZCAMController::getAutoAdjustEnabled() { return auto_adjust_enabled; }
+    double ZCAMController::getConfidenceThreshold() { return confidence_threshold; }
+    int ZCAMController::getCurrentISO() const { return camera_state.current_iso; }
+    double ZCAMController::getCurrentEV() const { return camera_state.current_ev; }
+    std::string ZCAMController::getCurrentAperture() const { return camera_state.current_aperture; }
+    int ZCAMController::getCurrentShutterAngle() const { return camera_state.current_shutter_angle; }
 
     nlohmann::json ZCAMController::getOptions() {
         nlohmann::json options;
