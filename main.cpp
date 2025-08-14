@@ -8,11 +8,6 @@
 using namespace std;
 using json = nlohmann::json;
 
-json config;
-string root;
-ZCAMController *leftCamera;
-ZCAMController *rightCamera;
-
 /*
 bool monitorCamera(ZCAMController& controller) {
 
@@ -101,6 +96,11 @@ bool monitorCamera(ZCAMController& controller) {
 
 // Simple test of just the frame capture
 int main(int argc, char* argv[]) {
+
+json config;
+string root;
+ZCAMController *leftCamera;
+ZCAMController *rightCamera;
 
 	string site = argc > 1 ? argv[1] : "tlv1"; 
 
