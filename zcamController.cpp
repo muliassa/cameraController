@@ -40,6 +40,9 @@ using namespace std;
         root = config["files"].get<string>();
         host = config["host"].get<string>();
 
+        if (config.count("refresh")>0)
+            refresh = config["refresh"].get<int>();
+
         camera_ip = config["ipaddr"][cam_idx].get<string>();
         camera_id = config["cameras"][cam_idx].get<string>();
 
@@ -529,7 +532,7 @@ using namespace std;
         params["brightness"] = metrics.brightness;
         params["contrast"] = metrics.contrast;
         params["exposure"] = metrics.exposure_score; 
-        params["snapshot"] = host + snapshot;    
+        params["snapshot"] = host + snapshot;  
 
         someNetwork net;
         net.https_request(server, "/api/caminfo", http::verb::post, params);
@@ -539,6 +542,6 @@ using namespace std;
     void ZCAMController::run() {
         while (!stop) {
             singleRun();
-            std::this_thread::sleep_for(std::chrono::seconds(300));             
+            std::this_thread::sleep_for(std::chrono::seconds(60 * refresh));             
         }
     }

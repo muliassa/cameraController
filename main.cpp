@@ -29,15 +29,15 @@ ZCAMController *rightCamera;
 
 	leftCamera = new ZCAMController(config, 0);
 
-	// rightCamera = new ZCAMController(config, 1);
+	rightCamera = new ZCAMController(config, 1);
 
     thread leftThread([leftCamera]() {
         leftCamera->run();
     });
 
-    // thread rightThread([rightCamera]() {
-    //     rightCamera->run();
-    // });
+    thread rightThread([rightCamera]() {
+        rightCamera->run();
+    });
 
     string serviceName = config["service"].get<string>();
 

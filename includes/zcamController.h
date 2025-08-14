@@ -64,6 +64,7 @@ private:
 
 	string root;
 	string snapshot;
+	int refresh = 5;
 	
 	bool stop = false;
 	string server;
