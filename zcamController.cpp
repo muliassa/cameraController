@@ -1365,11 +1365,11 @@ struct ZCAMSettings {
         // Skip stream info analysis, use manual detection
         if (!detectVideoStream()) return false;
         
-        std::cout << "✅ RTSP stream ready" << std::endl;
+        cout << "✅ RTSP stream ready" << std::endl;
         return true;
     }
 
-    void ZCAMController::stop() {
+    void ZCAMController::shutdown() {
         stop = true;
     }
     

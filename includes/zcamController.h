@@ -86,7 +86,7 @@ private:
 public:
     ZCAMController(const json& config, const int cam_idx);
     void runLoop();
-    void stop();
+    void shutdown();
 
 };
 
