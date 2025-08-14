@@ -78,7 +78,7 @@ someNetwork::Response someNetwork::http_get(string host, string url, string port
 
     try {
 
-        PeoclLogger::getInstance()->log(string("http_get: ") + host + " " + url);
+        someLogger::getInstance()->log(string("http_get: ") + host + " " + url);
 
         // The io_context is required for all I/O
         net::io_context ioc;
@@ -600,7 +600,7 @@ someNetwork::Response someNetwork::https_get(string host, string url, string aut
 
 someNetwork::Response someNetwork::https_request(string host, string url, http::verb method, nlohmann::json params, string authorization, string port) {
 
-    PeoclLogger::getInstance()->log("https_request# " + host + " " + url + " " + params.dump(4));
+    someLogger::getInstance()->log("https_request# " + host + " " + url + " " + params.dump(4));
     
     Response response;
 
@@ -675,7 +675,7 @@ someNetwork::Response someNetwork::https_request(string host, string url, http::
     }
     catch(std::exception const& e)
     {
-        PeoclLogger::getInstance()->log("https_request# " + host + " " + url + " error# " + e.what());
+        someLogger::getInstance()->log("https_request# " + host + " " + url + " error# " + e.what());
     }
 
     ioc.run();
@@ -685,10 +685,10 @@ someNetwork::Response someNetwork::https_request(string host, string url, http::
 
 bool someNetwork::https_download(string host, string url, string path, string authorization, string port) {
 
-    PeoclLogger::getInstance()->log("download# " + path + " url# " + url + " auth# " + authorization);
+    someLogger::getInstance()->log("download# " + path + " url# " + url + " auth# " + authorization);
 
     if (std::filesystem::exists(path)) { 
-        PeoclLogger::getInstance()->log(path + " is cached!");
+        someLogger::getInstance()->log(path + " is cached!");
         return true;
     }
 
@@ -751,7 +751,7 @@ bool someNetwork::https_download(string host, string url, string path, string au
         parser.get().body().open(path.c_str(), boost::beast::file_mode::write, ec);
 
         if (ec)
-            PeoclLogger::getInstance()->log("open error# " + ec.message());
+            someLogger::getInstance()->log("open error# " + ec.message());
 
         // Receive the HTTP response
         http::read(stream, buffer, /*res*/parser);
@@ -763,7 +763,7 @@ bool someNetwork::https_download(string host, string url, string path, string au
     }
     catch(std::exception const& e)
     {
-        PeoclLogger::getInstance()->log("download exception# " + string(e.what()));
+        someLogger::getInstance()->log("download exception# " + string(e.what()));
 
         return false;
     }

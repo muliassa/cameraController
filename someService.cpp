@@ -97,7 +97,7 @@ void someService::run() {
 
     post_status("init");
 
-    PeoclLogger::getInstance()->log("START SERVICE");
+    someLogger::getInstance()->log("START SERVICE");
 
     while (true) {
 

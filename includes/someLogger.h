@@ -18,12 +18,12 @@ enum class Colors { BLACK=30, RED=31, GREEN=32, YELLOW=33, BLUE=34, MAGENTA=35};
 class someLogger {
 private:
     FILE *fp;
-    PeoclLogLevel defaultLogLevel;
+    someLogLevel defaultLogLevel;
     uint64_t last = 0;
-    static PeoclLogger *_instance;
+    static someLogger *_instance;
     someLogger(string filename, someLogLevel level);
 public:
-    static someLogger *getInstance(string filename, PeoclLogLevel = PeoclLogLevel::INFO);
+    static someLogger *getInstance(string filename, someLogLevel = someLogLevel::INFO);
     static someLogger *getInstance();
     static string getTimeString(time_t timeStamp);
     static string getTimeString(const fs::file_time_type& ftim);
@@ -35,7 +35,7 @@ public:
     static vector<string> split(const string& str, char delimiter);
     json someLogger::loadConfig(string path);
     someLogLevel getDefault() { return defaultLogLevel; };
-    void log(string message, Colors = Colors::BLACK, PeoclLogLevel = PeoclLogLevel::DEFAULT);
+    void log(string message, Colors = Colors::BLACK, someLogLevel = someLogLevel::DEFAULT);
     void error(string message);
     void close();
 };

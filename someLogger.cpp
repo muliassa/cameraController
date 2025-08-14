@@ -10,7 +10,7 @@
 
 someLogger *someLogger::_instance;
 
-someLogger *someLogger::getInstance(string filename, PeoclLogLevel level) {
+someLogger *someLogger::getInstance(string filename, someLogLevel level) {
     if (_instance == nullptr)
         _instance = new someLogger(filename, level);
     return _instance;
@@ -20,13 +20,13 @@ someLogger *someLogger::getInstance() {
     return _instance;
 }
 
-someLogger::someLogger(string filename, PeoclLogLevel level) {
+someLogger::someLogger(string filename, someLogLevel level) {
     fp = fopen(filename.c_str(), "w");
     defaultLogLevel = level;
 }
 
-void someLogger::log(string message, Colors color, PeoclLogLevel override) {
-    PeoclLogLevel level = override == PeoclLogLevel::DEFAULT ? defaultLogLevel : override;
+void someLogger::log(string message, Colors color, someLogLevel override) {
+    someLogLevel level = override == someLogLevel::DEFAULT ? defaultLogLevel : override;
     // timeStamp
     uint64_t ts = timeSinceEpochMilli();
     // uint64_t diff = last > 0 ? ts - last : 0;
@@ -35,7 +35,7 @@ void someLogger::log(string message, Colors color, PeoclLogLevel override) {
     last = ts;
     fprintf(fp, "%s: %s\n", dateString.c_str(), message.c_str());
     fflush(fp);
-    if (level == PeoclLogLevel::DEBUG) {
+    if (level == someLogLevel::DEBUG) {
 //        fprintf(stdout, "\033[1;%dm", color);
         fprintf(stdout, "%s\n", message.c_str());
     }
