@@ -112,26 +112,6 @@ using namespace std;
         std::cout << "✅ Stream detection and decoder setup complete" << std::endl;
         return true;
     }
-
-    nlohmann::json ZCAMController::getOptions() {
-        nlohmann::json options;
-        options["iso_options"] = camera_state.iso_options;
-        options["iris_options"] = camera_state.iris_options;
-        options["target_brightness"] = camera_state.target_brightness;
-        options["brightness_range"] = "112-144";
-        options["contrast_range"] = "25-60";
-        return options;
-    }
-
-    nlohmann::json ZCAMController::toJson() { 
-        nlohmann::json params;
-        params["iso"] = camera_state.current_iso;
-        params["iris"] = camera_state.current_iris;
-        params["brightness"] = exposure_metrics.brightness;
-        params["contrast"] = exposure_metrics.contrast;
-        params["exposure"] = exposure_metrics.exposure_score;
-        return params;
-    }
     
     void ZCAMController::cleanup() {
         if (sws_ctx) {
@@ -199,7 +179,6 @@ using namespace std;
     }
     
     ExposureMetrics ZCAMController::analyzeExposure(const vector<uint8_t>& rgb_data, int width, int height) {
-        ExposureMetrics metrics;
         
         if (rgb_data.empty()) return metrics;
         

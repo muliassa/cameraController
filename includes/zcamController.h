@@ -74,7 +74,7 @@ private:
 
     CameraSettings settings;
     CameraState camera_state;
-    ExposureMetrics exposure_metrics;
+	ExposureMetrics metrics;
 
     int adjustment_count = 0;
 
@@ -98,8 +98,6 @@ public:
     ~ZCAMController();
     void run();
     void shutdown();
-    json toJson();
-    json getOptions(); 
 
 };
 
