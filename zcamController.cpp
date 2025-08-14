@@ -243,28 +243,7 @@ using namespace std;
         return false;
     }
     
-    // HTTPResponse ZCAMController::sendHTTPRequest(const std::string& endpoint) {
-    //     HTTPResponse response;
-    //     if (!curl) return response;
-        
-    //     std::string url = http_base_url + endpoint;
-        
-    //     curl_easy_reset(curl);
-    //     curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
-    //     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback);
-    //     curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response);
-    //     curl_easy_setopt(curl, CURLOPT_TIMEOUT, 5L);
-    //     curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, 3L);
-        
-    //     CURLcode res = curl_easy_perform(curl);
-    //     curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &response.response_code);
-    //     response.success = (res == CURLE_OK && response.response_code == 200);
-        
-    //     return response;
-    // }
-    
-    
-    ExposureMetrics analyzeExposure(const vector<uint8_t>& rgb_data, int width, int height) {
+    ExposureMetrics ZCAMController::analyzeExposure(const vector<uint8_t>& rgb_data, int width, int height) {
         ExposureMetrics metrics;
         
         if (rgb_data.empty()) return metrics;

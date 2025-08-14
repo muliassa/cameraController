@@ -40,7 +40,7 @@
 
 namespace ssl = boost::asio::ssl; // from <boost/asio/ssl.hpp>
 
-namespace detail {
+namespace boost::detail {
 
 inline
 void
