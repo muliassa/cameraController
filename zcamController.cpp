@@ -37,6 +37,8 @@ using namespace std;
 
     ZCAMController::ZCAMController(const json& config, const int cam_idx) {
 
+        root = config["files"].get<string>();
+
         camera_ip = config["ipaddr"][cam_idx].get<string>();
         camera_id = config["cameras"][cam_idx].get<string>();
 
@@ -370,7 +372,11 @@ using namespace std;
                     ret = avcodec_receive_frame(codec_ctx, frame);
                     if (ret == 0) {
 
-                        someFFMpeg::saveAVFrameAsJPEG(frame, string("stream.jpg"), 100);
+                        auto now = std::chrono::system_clock::now();
+                        auto time_t = std::chrono::system_clock::to_time_t(now);       
+                        std::stringstream ss;
+                        ss << root << "zcam/" << camera_id << std::put_time(std::localtime(&time_t), "%H%M%S");
+                        someFFMpeg::saveAVFrameAsJPEG(frame, ss.str(), 100);
 
                         width = frame->width;
                         height = frame->height;

@@ -61,6 +61,8 @@ class ZCAMController {
 private:
 	
 	atomic<bool> keep_running{true};
+
+	string root;
 	
 	bool stop = false;
 	string server;
