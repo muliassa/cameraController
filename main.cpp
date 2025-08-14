@@ -1,4 +1,5 @@
 
+#include <zcamController.h>
 #include <someLogger.h>
 
 string config;
