@@ -110,8 +110,8 @@ int main(int argc, char* argv[]) {
 
     json cameras = config["cameras"];
 
-	leftCamera = new ZCamController(config, 0);
-	rightCamera = new ZCamController(config, 1);
+	leftCamera = new ZCAMController(config, 0);
+	rightCamera = new ZCAMController(config, 1);
 
     thread leftThread([leftCamera]() {
         leftCamera->run();
