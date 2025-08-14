@@ -102,9 +102,9 @@ string root;
 ZCAMController *leftCamera;
 ZCAMController *rightCamera;
 
-	string site = argc > 1 ? argv[1] : "tlv1"; 
-
 	config = someLogger::loadConfig(string("config/") + site + string(".json"));
+	config["host"] = argc > 1 ? argv[1] : "tlv1";
+
 	root = config["files"].get<string>();
     someLogger::getInstance(root + "logs/zcam.log")->log("start zcam controller");
 

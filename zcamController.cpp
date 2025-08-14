@@ -37,9 +37,6 @@ using namespace std;
 
     ZCAMController::ZCAMController(const json& config, const int cam_idx) {
 
-        cout << config["ipaddr"].dump(4) << endl;
-        cout << config["cameras"].dump(4) << endl;
-
         camera_ip = config["ipaddr"][cam_idx].get<string>();
         camera_id = config["cameras"][cam_idx].get<string>();
 
