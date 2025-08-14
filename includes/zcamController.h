@@ -24,9 +24,11 @@ private:
 	bool readCurrentSettings();
 	bool initializeStream();
 	bool captureFrame(std::vector<uint8_t>& rgb_data, int& width, int& height);
+    void singleRun();
 
 public:
     ZCAMController(const json& config, const int cam_idx);
+    void runLoop();
     void stop();
 
 };
