@@ -1393,7 +1393,7 @@ struct CameraState {
         return true;
     }
 
-    ZCAMController::stop() {
+    void ZCAMController::stop() {
         stop = true;
     }
     
@@ -1405,7 +1405,7 @@ struct CameraState {
         return (tm.tm_hour >= start_hour && tm.tm_hour < end_hour);
     }
 
-    ZCAMController::singleRun() {
+    void ZCAMController::singleRun() {
 
         if (!isOperatingHours()) {
             std::cout << "😴 Outside operating hours, sleeping..." << std::endl;
@@ -1452,7 +1452,7 @@ struct CameraState {
 
     }
 
-    ZCAMController::runLoop() {
+    void ZCAMController::runLoop() {
 
         while (!stop) {
             singleRun()

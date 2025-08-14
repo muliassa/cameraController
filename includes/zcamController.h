@@ -27,6 +27,7 @@ private:
 
 public:
     ZCAMController(const json& config, const int cam_idx);
+    void stop();
 
 };
 
