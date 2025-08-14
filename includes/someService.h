@@ -1,6 +1,6 @@
 
-#ifndef SERVICE_H
-#define SERVICE_H
+#ifndef SOME_SERVICE_H
+#define SOME_SERVICE_H
 
 #include <string>
 #include <iostream>     // std::cout
