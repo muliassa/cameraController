@@ -404,13 +404,13 @@ using namespace std;
         std::cout << "🧹 Cleaned up" << std::endl;
     }
 
-    someNetwork::Response getRequest(const string& endpoint, const string& method = "GET", const string& data = "") {
+    someNetwork::Response ZCAMController::getRequest(const string& endpoint, const string& method = "GET", const string& data = "") {
 
         std::cout << "🌐 HTTP Request: " << endpoint << std::endl;
 
-        someNetwork network;
+        someNetwork net;
 
-        auto response = network.http_get(camera_ip, endpoint);
+        auto response = net.http_get(camera_ip, endpoint);
 
         cout << "HTTP Response: " << response.str << " " << response.status << endl;
         
