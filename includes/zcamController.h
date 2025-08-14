@@ -63,9 +63,11 @@ private:
 	atomic<bool> keep_running{true};
 
 	string root;
+	string snapshot;
 	
 	bool stop = false;
 	string server;
+	string host;
     int start_hour = 6;   // 6 AM
     int end_hour = 22;    // 10 PM
 

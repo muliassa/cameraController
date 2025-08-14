@@ -38,6 +38,7 @@ using namespace std;
     ZCAMController::ZCAMController(const json& config, const int cam_idx) {
 
         root = config["files"].get<string>();
+        host = config["host"].get<string>();
 
         camera_ip = config["ipaddr"][cam_idx].get<string>();
         camera_id = config["cameras"][cam_idx].get<string>();
@@ -376,7 +377,8 @@ using namespace std;
                         auto time_t = std::chrono::system_clock::to_time_t(now);       
                         std::stringstream ss;
                         ss << root << "zcam/" << camera_id << std::put_time(std::localtime(&time_t), "%H%M%S") << ".JPG";
-                        someFFMpeg::saveAVFrameAsJPEG(frame, ss.str(), 100);
+                        snapshot = ss.str();
+                        someFFMpeg::saveAVFrameAsJPEG(frame, snapshot, 100);
 
                         width = frame->width;
                         height = frame->height;
@@ -526,7 +528,8 @@ using namespace std;
         params["iris"] = settings.iris;
         params["brightness"] = metrics.brightness;
         params["contrast"] = metrics.contrast;
-        params["exposure"] = metrics.exposure_score;      
+        params["exposure"] = metrics.exposure_score; 
+        params["snapshot"] = host + snapshot;    
 
         someNetwork net;
         net.https_request(server, "/api/caminfo", http::verb::post, params);
@@ -536,6 +539,6 @@ using namespace std;
     void ZCAMController::run() {
         while (!stop) {
             singleRun();
-            std::this_thread::sleep_for(std::chrono::seconds(60));             
+            std::this_thread::sleep_for(std::chrono::seconds(300));             
         }
     }
