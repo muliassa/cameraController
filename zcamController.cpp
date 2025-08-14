@@ -1006,39 +1006,39 @@ struct ZCAMSettings {
     }
     
     bool ZCAMController::applySetting(const std::string& param, const std::string& value) {
-        std::string endpoint = "/ctrl/set?" + param + "=" + value;
-        HTTPResponse response = sendHTTPRequest(endpoint);
+        string endpoint = "/ctrl/set?" + param + "=" + value;
+        // HTTPResponse response = sendHTTPRequest(endpoint);
         
-        if (response.success) {
-            Json::Value root;
-            Json::Reader reader;
-            if (reader.parse(response.data, root) && 
-                root.isMember("code") && root["code"].asInt() == 0) {
-                return true;
-            }
-        }
+        // if (response.success) {
+        //     Json::Value root;
+        //     Json::Reader reader;
+        //     if (reader.parse(response.data, root) && 
+        //         root.isMember("code") && root["code"].asInt() == 0) {
+        //         return true;
+        //     }
+        // }
         return false;
     }
     
-    HTTPResponse ZCAMController::sendHTTPRequest(const std::string& endpoint) {
-        HTTPResponse response;
-        if (!curl) return response;
+    // HTTPResponse ZCAMController::sendHTTPRequest(const std::string& endpoint) {
+    //     HTTPResponse response;
+    //     if (!curl) return response;
         
-        std::string url = http_base_url + endpoint;
+    //     std::string url = http_base_url + endpoint;
         
-        curl_easy_reset(curl);
-        curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
-        curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback);
-        curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response);
-        curl_easy_setopt(curl, CURLOPT_TIMEOUT, 5L);
-        curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, 3L);
+    //     curl_easy_reset(curl);
+    //     curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
+    //     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback);
+    //     curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response);
+    //     curl_easy_setopt(curl, CURLOPT_TIMEOUT, 5L);
+    //     curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, 3L);
         
-        CURLcode res = curl_easy_perform(curl);
-        curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &response.response_code);
-        response.success = (res == CURLE_OK && response.response_code == 200);
+    //     CURLcode res = curl_easy_perform(curl);
+    //     curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &response.response_code);
+    //     response.success = (res == CURLE_OK && response.response_code == 200);
         
-        return response;
-    }
+    //     return response;
+    // }
     
     ExposureMetrics ZCAMController::analyzeExposure(const std::vector<uint8_t>& rgb_data, int width, int height) {
         ExposureMetrics metrics;
@@ -1287,26 +1287,28 @@ struct ZCAMSettings {
     
     bool ZCAMController::readCurrentSettings() {
         // Get ISO
-        HTTPResponse iso_resp = sendHTTPRequest("/ctrl/get?k=iso");
-        if (iso_resp.success) {
-            Json::Value root;
-            Json::Reader reader;
-            if (reader.parse(iso_resp.data, root) && root.isMember("value")) {
-                settings.iso = std::stoi(root["value"].asString());
-            }
-        }
+        // HTTPResponse iso_resp = sendHTTPRequest("/ctrl/get?k=iso");
+        // if (iso_resp.success) {
+        //     Json::Value root;
+        //     Json::Reader reader;
+        //     if (reader.parse(iso_resp.data, root) && root.isMember("value")) {
+        //         settings.iso = std::stoi(root["value"].asString());
+        //     }
+        // }
         
         // Get Iris
-        HTTPResponse iris_resp = sendHTTPRequest("/ctrl/get?k=iris");
-        if (iris_resp.success) {
-            Json::Value root;
-            Json::Reader reader;
-            if (reader.parse(iris_resp.data, root) && root.isMember("value")) {
-                settings.iris = root["value"].asString();
-            }
-        }
+        // HTTPResponse iris_resp = sendHTTPRequest("/ctrl/get?k=iris");
+        // if (iris_resp.success) {
+        //     Json::Value root;
+        //     Json::Reader reader;
+        //     if (reader.parse(iris_resp.data, root) && root.isMember("value")) {
+        //         settings.iris = root["value"].asString();
+        //     }
+        // }
         
-        return iso_resp.success && iris_resp.success;
+        // return iso_resp.success && iris_resp.success;
+
+        return true;
     }
     
     bool ZCAMController::detectVideoStream() {
