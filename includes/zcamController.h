@@ -23,7 +23,7 @@ struct ExposureMetrics {
 // Camera state
 struct CameraSettings {
     int iso = 500;
-    std::string iris = "10";          // f-stop
+    string iris = "10";          // f-stop
     double target_brightness = 140.0; // Slightly brighter for surf
     double brightness_tolerance = 20.0;
     
@@ -80,7 +80,6 @@ private:
 
 	bool isOperatingHours();
 	bool readCurrentSettings();
-	bool getCurrentCameraSettings();
 
     someNetwork::Response httpRequest(const string& endpoint, const string& method = "GET", const string& data = "");
 

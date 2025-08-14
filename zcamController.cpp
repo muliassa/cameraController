@@ -166,7 +166,7 @@ using namespace std;
         return response;
     }
 
-    bool ZCAMController::getCurrentCameraSettings() {
+    bool ZCAMController::readCurrentSettings() {
 
         cout << "🔍 Reading current ZCAM E8 Z2 settings..." << endl;
         
@@ -174,75 +174,27 @@ using namespace std;
         auto resp = httpRequest("/ctrl/get?k=iso");
         if (resp.status == 200) {
             if (resp.json.count("value") > 0) 
-                camera_state.current_iso = stoi(resp.json["value"].get<string>());
-            camera_state.iso_options = resp.json["opts"]; 
+                settings.iso = stoi(resp.json["value"].get<string>());
+            // camera_state.iso_options = resp.json["opts"]; 
         }
 
         resp = httpRequest("/ctrl/get?k=iris");
         if (resp.status == 200 && resp.json.count("value") > 0) {
-            camera_state.current_aperture = resp.json["value"].get<string>();
-            camera_state.current_iris = stod(camera_state.current_aperture); 
-            camera_state.iris_options = resp.json["opts"]; 
+            settings.iris = resp.json["value"].get<string>();
+            // camera_state.iris_options = resp.json["opts"]; 
         }
 
-        return resp.status == 200;
-
-        // Get white balance for context
-        // auto wb_resp = getRequest("/ctrl/get?k=wb");
-        // if (wb_resp.success) {
-        //     Json::Value root;
-        //     Json::Reader reader;
-        //     if (reader.parse(wb_resp.data, root) && root.isMember("value")) {
-        //         std::cout << "   📊 White Balance: " << root["value"].asString() << std::endl;
-        //     }
-        // }
-        
-        // Get manual white balance if available
-        // auto mwb_resp = getRequest("/ctrl/get?k=mwb");
-        // if (mwb_resp.success) {
-        //     Json::Value root;
-        //     Json::Reader reader;
-        //     if (reader.parse(mwb_resp.data, root) && root.isMember("value")) {
-        //         std::cout << "   📊 Manual WB: " << root["value"].asString() << "K" << std::endl;
-        //     }
-        // }
-        
-        // Get camera temperature
-        // auto temp_resp = getRequest("/ctrl/temperature");
-        // if (temp_resp.success) {
-        //     Json::Value root;
-        //     Json::Reader reader;
-        //     if (reader.parse(temp_resp.data, root)) {
-        //         std::cout << "   🌡️ Camera Temp: " << temp_resp.data << std::endl;
-        //     }
-        // }
-        
-        // Check recording status  
-        // auto rec_resp = getRequest("/ctrl/get?k=rec");
-        // if (rec_resp.success) {
-        //     Json::Value root;
-        //     Json::Reader reader;
-        //     if (reader.parse(rec_resp.data, root) && root.isMember("value")) {
-        //         std::string rec_status = root["value"].asString();
-        //         std::cout << "   📹 Recording: " << (rec_status == "on" ? "🔴 RECORDING" : "⏸️ STANDBY") << std::endl;
-        //     }
-        // }
-        
         return resp.status == 200;
     }
     
     bool ZCAMController::applySetting(const std::string& param, const std::string& value) {
+
         string endpoint = "/ctrl/set?" + param + "=" + value;
-        // HTTPResponse response = sendHTTPRequest(endpoint);
-        
-        // if (response.success) {
-        //     Json::Value root;
-        //     Json::Reader reader;
-        //     if (reader.parse(response.data, root) && 
-        //         root.isMember("code") && root["code"].asInt() == 0) {
-        //         return true;
-        //     }
-        // }
+        auto resp = httpRequest(endpoint);
+        if (resp.json.count("code")) {
+            auto st = resp.json["code"].get<int>();
+            return st == 0;
+        }
         return false;
     }
     
@@ -470,32 +422,6 @@ using namespace std;
         av_frame_free(&rgb_frame);
         
         return success;
-    }
-    
-    bool ZCAMController::readCurrentSettings() {
-        // Get ISO
-        // HTTPResponse iso_resp = sendHTTPRequest("/ctrl/get?k=iso");
-        // if (iso_resp.success) {
-        //     Json::Value root;
-        //     Json::Reader reader;
-        //     if (reader.parse(iso_resp.data, root) && root.isMember("value")) {
-        //         settings.iso = std::stoi(root["value"].asString());
-        //     }
-        // }
-        
-        // Get Iris
-        // HTTPResponse iris_resp = sendHTTPRequest("/ctrl/get?k=iris");
-        // if (iris_resp.success) {
-        //     Json::Value root;
-        //     Json::Reader reader;
-        //     if (reader.parse(iris_resp.data, root) && root.isMember("value")) {
-        //         settings.iris = root["value"].asString();
-        //     }
-        // }
-        
-        // return iso_resp.success && iris_resp.success;
-
-        return true;
     }
     
     bool ZCAMController::detectVideoStream() {
