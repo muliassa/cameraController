@@ -80,6 +80,8 @@ private:
 
 	bool isOperatingHours();
 	bool readCurrentSettings();
+	bool getCurrentCameraSettings();
+
     ExposureMetrics analyzeExposure(const vector<uint8_t>& rgb_data, int width, int height);
     bool adjustExposure(const ExposureMetrics& metrics);
     bool applySetting(const string& param, const string& value);
