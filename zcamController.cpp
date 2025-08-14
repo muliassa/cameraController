@@ -404,7 +404,7 @@ using namespace std;
         std::cout << "🧹 Cleaned up" << std::endl;
     }
 
-    someNetwork::Response ZCAMController::getRequest(const string& endpoint, const string& method = "GET", const string& data = "") {
+    someNetwork::Response ZCAMController::httpRequest(const string& endpoint, const string& method = "GET", const string& data = "") {
 
         std::cout << "🌐 HTTP Request: " << endpoint << std::endl;
 
@@ -422,50 +422,19 @@ using namespace std;
         cout << "🔍 Reading current ZCAM E8 Z2 settings..." << endl;
         
         // Get current ISO - using your working JS format
-        auto resp = getRequest("/ctrl/get?k=iso");
+        auto resp = httpRequest("/ctrl/get?k=iso");
         if (resp.status == 200) {
             if (resp.json.count("value") > 0) 
                 camera_state.current_iso = stoi(resp.json["value"].get<string>());
             camera_state.iso_options = resp.json["opts"]; 
         }
 
-        resp = getRequest("/ctrl/get?k=iris");
+        resp = httpRequest("/ctrl/get?k=iris");
         if (resp.status == 200 && resp.json.count("value") > 0) {
             camera_state.current_aperture = resp.json["value"].get<string>();
             camera_state.current_iris = stod(camera_state.current_aperture); 
             camera_state.iris_options = resp.json["opts"]; 
         }
-
-        resp = getRequest("/ctrl/get?k=shutter_angle");
-        if (resp.status == 200 && resp.json.count("value") > 0) {
-            auto shutter = resp.json["value"].get<string>();
-            camera_state.shutter_options = resp.json["opts"];
-            camera_state.current_shutter_angle = shutter == "Auto" ? 0 : stoi(shutter);
-        }
-
-        // resp = getRequest("/ctrl/get?k=ev");
-        // if (resp.status == 200) {
-        //     double ev_steps = 0.0;
-        //     if (resp.json.count("value") > 0) {
-        //         ev_steps = resp.json["value"].get<double>(); 
-        //         camera_state.current_ev = ev_steps / 10.0;  // Convert to actual EV                
-        //     }
-        //     cout << "   📊 Current EV: " << std::showpos << camera_state.current_ev << std::noshowpos << " (steps: " << ev_steps << ")" << std::endl;
-        // } else {
-        //     cout << "   ⚠️ Could not read EV (HTTP " << resp.status << ")" << endl;
-        // }
-        
-        // Show available ISO options
-        // if (root.isMember("opts") && root["opts"].isArray()) {
-        //     std::cout << "   🎚️ Available ISOs: ";
-        //     for (const auto& iso_opt : root["opts"]) {
-        //         std::cout << iso_opt.asString() << " ";
-        //     }
-        //     std::cout << std::endl;
-        // } else {
-        //     std::cout << "   ❌ Unexpected ISO response format" << std::endl;
-        //     std::cout << "   Response: " << resp.data << std::endl;
-        // }
 
         return resp.status == 200;
 

@@ -4,6 +4,8 @@
 #include <string>
 #include <nlohmann/json.hpp>
 
+#include <someNetwork.h>
+
 using namespace std;
 using json = nlohmann::json;
 
@@ -53,14 +55,6 @@ struct CameraState {
     double brightness_tolerance = 15.0;
 };
 
-// HTTP response handler
-struct HTTPResponse {
-    std::string data;
-    long response_code;
-    bool success;
-    HTTPResponse() : response_code(0), success(false) {}
-};
-
 class ZCAMController {
 
 private:
@@ -88,6 +82,8 @@ private:
 	bool isOperatingHours();
 	bool readCurrentSettings();
 	bool getCurrentCameraSettings();
+
+    someNetwork::Response httpRequest(const string& endpoint, const string& method = "GET", const string& data = "");
 
     ExposureMetrics analyzeExposure(const vector<uint8_t>& rgb_data, int width, int height);
     bool adjustExposure(const ExposureMetrics& metrics);
