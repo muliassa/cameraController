@@ -33,7 +33,7 @@ public:
     static time_t now();
     static uint64_t timeSinceEpochMilli();
     static vector<string> split(const string& str, char delimiter);
-    json someLogger::loadConfig(string path);
+    json loadConfig(string path);
     someLogLevel getDefault() { return defaultLogLevel; };
     void log(string message, Colors = Colors::BLACK, someLogLevel = someLogLevel::DEFAULT);
     void error(string message);
