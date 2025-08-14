@@ -7,6 +7,7 @@
 using namespace std;
 
 class ZCAMController {
+	
 private:
 	bool stop = false;
 	string server;
@@ -18,8 +19,11 @@ private:
     string rtsp_url;
     string http_base_url;
 
+	bool isOperatingHours();
+
 public:
     ZCAMController(const json& config, const int cam_idx);
+
 };
 
 #endif
