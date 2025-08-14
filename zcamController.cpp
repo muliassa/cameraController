@@ -1,4 +1,4 @@
-#include <zcamConteoller.h>
+#include <zcamController.h>
 
 #include <iostream>
 #include <string>
