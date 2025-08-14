@@ -47,6 +47,12 @@ using namespace std;
 
         server = config["server"].get<string>();
 
+        if (config.count("start_hour") > 0)
+            start_hour = config["start_hour"].get<int>();
+
+        if (config.count("end_hour") > 0)
+            start_hour = config["end_hour"].get<int>();
+
         // Initialize FFmpeg
         #if LIBAVFORMAT_VERSION_INT < AV_VERSION_INT(58, 9, 100)
         av_register_all();
