@@ -631,106 +631,6 @@ using namespace std;
         return true;
     }
     
-    bool ZCAMController::captureOneFrame(std::vector<uint8_t>& rgb_data, int& width, int& height) {
-        if (!format_ctx || !codec_ctx) {
-            std::cout << "❌ Not connected" << std::endl;
-            return false;
-        }
-        
-        std::cout << "📷 Capturing frame..." << std::endl;
-        
-        AVPacket *packet = av_packet_alloc();
-        AVFrame *frame = av_frame_alloc();
-        AVFrame *rgb_frame = av_frame_alloc();
-        
-        if (!packet || !frame || !rgb_frame) {
-            std::cout << "❌ Failed to allocate memory" << std::endl;
-            if (packet) av_packet_free(&packet);
-            if (frame) av_frame_free(&frame);
-            if (rgb_frame) av_frame_free(&rgb_frame);
-            return false;
-        }
-        
-        bool success = false;
-        int packets_read = 0;
-        
-        // Read packets until we get a decoded frame
-        while (packets_read < 200) { // Safety limit
-            int ret = av_read_frame(format_ctx, packet);
-            packets_read++;
-            
-            if (ret < 0) {
-                char errbuf[AV_ERROR_MAX_STRING_SIZE];
-                av_make_error_string(errbuf, AV_ERROR_MAX_STRING_SIZE, ret);
-                std::cout << "❌ Read error after " << packets_read << " packets: " << errbuf << std::endl;
-                break;
-            }
-            
-            // Process video packets only
-            if (packet->stream_index == video_stream_index) {
-                // Send packet to decoder
-                ret = avcodec_send_packet(codec_ctx, packet);
-                if (ret == 0) {
-                    // Try to receive a frame
-                    ret = avcodec_receive_frame(codec_ctx, frame);
-                    if (ret == 0) {
-
-                        someFFMpeg::saveAVFrameAsJPEG(frame, string("stream.jpg"), 100);
-
-                        // We got a frame! Convert it to RGB
-                        width = frame->width;
-                        height = frame->height;
-                        
-                        std::cout << "🎬 Frame decoded: " << width << "x" << height 
-                                 << " (after " << packets_read << " packets)" << std::endl;
-                        
-                        // Setup color conversion
-                        sws_ctx = sws_getContext(
-                            width, height, (AVPixelFormat)frame->format,
-                            width, height, AV_PIX_FMT_RGB24,
-                            SWS_BILINEAR, nullptr, nullptr, nullptr
-                        );
-                        
-                        if (sws_ctx) {
-                            // Allocate RGB buffer
-                            int rgb_size = av_image_get_buffer_size(AV_PIX_FMT_RGB24, width, height, 1);
-                            rgb_data.resize(rgb_size);
-                            
-                            // Setup RGB frame
-                            av_image_fill_arrays(rgb_frame->data, rgb_frame->linesize,
-                                                rgb_data.data(), AV_PIX_FMT_RGB24, width, height, 1);
-                            
-                            // Convert to RGB
-                            sws_scale(sws_ctx, frame->data, frame->linesize, 0, height,
-                                    rgb_frame->data, rgb_frame->linesize);
-                            
-                            std::cout << "✅ Frame converted to RGB (" << rgb_size << " bytes)" << std::endl;
-                            success = true;
-                        }
-                        break;
-                    } else if (ret != AVERROR(EAGAIN)) {
-                        char errbuf[AV_ERROR_MAX_STRING_SIZE];
-                        av_make_error_string(errbuf, AV_ERROR_MAX_STRING_SIZE, ret);
-                        std::cout << "⚠️ Decode error: " << errbuf << std::endl;
-                    }
-                }
-            }
-            
-            av_packet_unref(packet);
-        }
-        
-        // Cleanup
-        av_packet_free(&packet);
-        av_frame_free(&frame);
-        av_frame_free(&rgb_frame);
-        
-        if (!success) {
-            std::cout << "❌ Failed to capture frame after " << packets_read << " packets" << std::endl;
-        }
-        
-        return success;
-    }
-    
     // Getters for current settings
     CameraState getCameraState() { return camera_state; }
     bool getAutoAdjustEnabled() { return auto_adjust_enabled; }
@@ -1135,6 +1035,9 @@ using namespace std;
                 if (ret == 0) {
                     ret = avcodec_receive_frame(codec_ctx, frame);
                     if (ret == 0) {
+
+                        someFFMpeg::saveAVFrameAsJPEG(frame, string("stream.jpg"), 100);
+
                         width = frame->width;
                         height = frame->height;
                         
