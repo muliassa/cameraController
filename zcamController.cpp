@@ -529,14 +529,13 @@ using namespace std;
             cout << "   ⚠️ Frame capture failed" << std::endl;
         }      
 
-
-        nlohmann::json params;
+        json params;
         params["camera"] = camera_id;
-        params["iso"] = camera_state.current_iso;
-        params["iris"] = camera_state.current_iris;
-        params["brightness"] = exposure_metrics.brightness;
-        params["contrast"] = exposure_metrics.contrast;
-        params["exposure"] = exposure_metrics.exposure_score;      
+        params["iso"] = settings.iso;
+        params["iris"] = settings.iris;
+        params["brightness"] = metrics.brightness;
+        params["contrast"] = metrics.contrast;
+        params["exposure"] = metrics.exposure_score;      
 
         someNetwork net;
         net.https_request(server, "/api/caminfo", http::verb::post, params);
