@@ -795,7 +795,6 @@ struct ZCAMSettings {
         params["exposure_score"] = exposure_metrics.exposure_score;
         return params;
     }
-
     
     void ZCAMController::cleanup() {
         if (sws_ctx) {

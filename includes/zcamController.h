@@ -89,6 +89,7 @@ private:
     bool detectVideoStream();
 	bool captureFrame(vector<uint8_t>& rgb_data, int& width, int& height);
     void singleRun();
+    void cleanup();
 
 public:
     ZCAMController(const json& config, const int cam_idx);
