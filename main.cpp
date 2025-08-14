@@ -1,12 +1,18 @@
+#include <string>
+#include <iostream>
 
 #include <zcamController.h>
 #include <someLogger.h>
+
+using namespace std;
+using json = nlohmann::json;
 
 string config;
 string root;
 ZCAMController *left;
 ZCAMController *right;
 
+/*
 bool monitorCamera(ZCAMController& controller) {
 
         // Connect to camera
@@ -90,18 +96,18 @@ bool monitorCamera(ZCAMController& controller) {
         return true;
 
 }
-
+*/
 
 // Simple test of just the frame capture
 int main(int argc, char* argv[]) {
 
 	string site = argc > 1 ? argv[1] : "tlv1"; 
 
-	config = someLogger::loadConfig("config/" + argv[1]);
+	config = someLogger::loadConfig(string("config/") + site + string(".json"));
 	root = config["files"].get<string>();
     someLogger::getInstance(root + "logs/zcam.log")->log("start zcam controller");
 
-    json::array cameras = config["cameras"];
+    json cameras = config["cameras"];
 
 	left = new ZCamController(config, 0);
 	right = new ZCamController(config, 1);
@@ -126,11 +132,5 @@ int main(int argc, char* argv[]) {
         rightThread.join();
     }
 
-        return 0;
-        
-    } catch (const std::exception& e) {
-        std::cerr << "Error: " << e.what() << std::endl;
-        return -1;
-    }
 }
 
