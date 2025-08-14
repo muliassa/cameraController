@@ -141,67 +141,6 @@ public:
         }
     }
     
-    ExposureMetrics analyzeExposure(const std::vector<uint8_t>& rgb_data, int width, int height) {
-        ExposureMetrics metrics;
-        
-        if (rgb_data.empty()) return metrics;
-        
-        metrics.total_pixels = width * height;
-        
-        double sum_brightness = 0.0;
-        double sum_squared = 0.0;
-        int highlight_count = 0;
-        int shadow_count = 0;
-        
-        // Analyze pixels
-        for (int i = 0; i < metrics.total_pixels; i++) {
-            size_t pixel_idx = static_cast<size_t>(i) * 3;
-            if (pixel_idx + 2 < rgb_data.size()) {
-                uint8_t r = rgb_data[pixel_idx];
-                uint8_t g = rgb_data[pixel_idx + 1];
-                uint8_t b = rgb_data[pixel_idx + 2];
-                
-                uint8_t gray = static_cast<uint8_t>(0.299 * r + 0.587 * g + 0.114 * b);
-                
-                sum_brightness += gray;
-                sum_squared += gray * gray;
-                
-                if (gray >= 250) highlight_count++;
-                if (gray <= 5) shadow_count++;
-            }
-        }
-        
-        if (metrics.total_pixels > 0) {
-            metrics.brightness = sum_brightness / metrics.total_pixels;
-            
-            double variance = (sum_squared / metrics.total_pixels) - (metrics.brightness * metrics.brightness);
-            metrics.contrast = std::sqrt(std::max(0.0, variance));
-            
-            metrics.highlights_clipped = (highlight_count * 100.0) / metrics.total_pixels;
-            metrics.shadows_clipped = (shadow_count * 100.0) / metrics.total_pixels;
-            
-            // Simplified exposure score
-            double score = 100.0;
-            
-            // Brightness penalty
-            double brightness_error = std::abs(metrics.brightness - settings.target_brightness);
-            score -= std::min(brightness_error * 1.5, 50.0);
-            
-            // Clipping penalties
-            score -= metrics.highlights_clipped * 3.0;
-            score -= metrics.shadows_clipped * 2.0;
-            
-            // Contrast bonus/penalty
-            if (metrics.contrast < 15.0) {
-                score -= (15.0 - metrics.contrast) * 1.0;
-            }
-            
-            metrics.exposure_score = std::max(0.0, std::min(100.0, score));
-        }
-        
-        return metrics;
-    }
-    
     bool adjustExposure(const ExposureMetrics& metrics) {
         double brightness_error = metrics.brightness - settings.target_brightness;
         bool needs_adjustment = std::abs(brightness_error) > settings.brightness_tolerance;

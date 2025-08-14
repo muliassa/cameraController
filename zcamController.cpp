@@ -95,85 +95,6 @@ struct ZCAMSettings {
         avformat_network_deinit();
     }
     
-    ExposureMetrics ZCAMController::analyzeExposure(const std::vector<uint8_t>& rgb_data, int width, int height) {
-
-        ExposureMetrics metrics;
-        
-        if (rgb_data.empty()) {
-            return metrics;
-        }
-        
-        // Convert RGB to grayscale and analyze
-        std::vector<uint8_t> gray_data;
-        gray_data.reserve(width * height);
-        
-        double sum_brightness = 0.0;
-        double sum_squared = 0.0;
-        int highlight_count = 0;
-        int shadow_count = 0;
-        
-        // Initialize histogram
-        metrics.histogram.resize(256, 0.0f);
-        
-        // Process each pixel
-        for (int i = 0; i < width * height; i++) {
-            size_t pixel_idx = static_cast<size_t>(i) * 3; // RGB format
-            if (pixel_idx + 2 < rgb_data.size()) {
-                uint8_t r = rgb_data[pixel_idx];
-                uint8_t g = rgb_data[pixel_idx + 1];
-                uint8_t b = rgb_data[pixel_idx + 2];
-                
-                // Convert to grayscale (standard weights)
-                uint8_t gray = static_cast<uint8_t>(0.299 * r + 0.587 * g + 0.114 * b);
-                gray_data.push_back(gray);
-                
-                // Accumulate statistics
-                sum_brightness += gray;
-                sum_squared += gray * gray;
-                
-                // Count clipped pixels
-                if (gray >= 250) highlight_count++;
-                if (gray <= 5) shadow_count++;
-                
-                // Build histogram
-                metrics.histogram[gray]++;
-            }
-        }
-        
-        int total_pixels = width * height;
-        if (total_pixels > 0) {
-            // Calculate metrics
-            metrics.mean_brightness = sum_brightness / total_pixels;
-            
-            // Calculate standard deviation (contrast)
-            double variance = (sum_squared / total_pixels) - (metrics.mean_brightness * metrics.mean_brightness);
-            metrics.contrast = std::sqrt(variance);
-            
-            // Calculate clipped percentages
-            metrics.clipped_highlights = (highlight_count * 100.0) / total_pixels;
-            metrics.clipped_shadows = (shadow_count * 100.0) / total_pixels;
-            
-            // Find dynamic range
-            auto min_it = std::find_if(gray_data.begin(), gray_data.end(), [](uint8_t val) { return val > 0; });
-            auto max_it = std::max_element(gray_data.begin(), gray_data.end());
-            if (min_it != gray_data.end() && max_it != gray_data.end()) {
-                metrics.dynamic_range = *max_it - *min_it;
-            }
-            
-            // Normalize histogram
-            for (auto& val : metrics.histogram) {
-                val /= total_pixels;
-            }
-            
-            // Calculate exposure score
-            metrics.exposure_score = calculateExposureScore(metrics);
-        }
-
-        exposure_metrics = metrics;
-        
-        return metrics;
-    }
-    
     double ZCAMController::calculateExposureScore(const ExposureMetrics& metrics) {
         double score = 100.0;
         
@@ -1040,7 +961,8 @@ struct ZCAMSettings {
     //     return response;
     // }
     
-    ExposureMetrics ZCAMController::analyzeExposure(const std::vector<uint8_t>& rgb_data, int width, int height) {
+    
+    ExposureMetrics analyzeExposure(const vector<uint8_t>& rgb_data, int width, int height) {
         ExposureMetrics metrics;
         
         if (rgb_data.empty()) return metrics;
