@@ -17,6 +17,7 @@ ZCAMController *camera;
 
 	if (argc < 3) {
 		cout << "usage: cameraController <host> <cam_id>" << endl;
+		exit(0);
 	}
 
 	string site = argv[1]; 
