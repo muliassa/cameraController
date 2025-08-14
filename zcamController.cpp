@@ -8,7 +8,6 @@
 #include <iomanip>
 #include <cstdint>
 #include <chrono>
-#include <curl/curl.h>
 #include <json/json.h>
 
 #include <someLogger.h>
@@ -16,39 +15,6 @@
 #include <someFFMpeg.h>
 
 using namespace std;
-
-
-struct ExposureMetrics {
-
-    double mean_brightness;
-    std::vector<float> histogram;
-    double dynamic_range;
-    double contrast;
-    double clipped_highlights;
-    double clipped_shadows;
-    double exposure_score;
-   
-    // Advanced metrics
-    double shadows_percent = 0.0;   // 0-85 range
-    double midtones_percent = 0.0;  // 85-170 range  
-    double highlights_percent = 0.0; // 170-255 range
-    double saturation_level = 0.0;  // How close to clipping
-    int total_pixels = 0;
-};
-
-struct ZCAMSettings {
-    int iso;
-    double exposure_compensation;
-    string aperture;
-    int shutter_angle;
-    string reasoning;
-    
-    // Quality indicators
-    bool is_native_iso = false;
-    double confidence = 0.0;  // 0-1 how confident we are in this recommendation
-};
-
-    CURL *curl;
 
     CameraState camera_state;
     ExposureMetrics exposure_metrics;

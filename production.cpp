@@ -30,28 +30,6 @@ void signal_handler(int signal) {
     keep_running = false;
 }
 
-// Simplified metrics - focus only on exposure
-struct ExposureMetrics {
-    double brightness = 0.0;          // 0-255 (target: ~128-150 for surf)
-    double contrast = 0.0;            // Standard deviation
-    double highlights_clipped = 0.0;  // % pixels >250
-    double shadows_clipped = 0.0;     // % pixels <5
-    double exposure_score = 0.0;      // Overall quality 0-100
-    int total_pixels = 0;
-};
-
-// Camera state
-struct CameraSettings {
-    int iso = 500;
-    std::string iris = "10";          // f-stop
-    double target_brightness = 140.0; // Slightly brighter for surf
-    double brightness_tolerance = 20.0;
-    
-    // Iris constraints for surf
-    std::string min_iris = "8";       // f/8 - good contrast, not too wide
-    std::string max_iris = "16";      // f/16 - reasonable light control
-};
-
 // HTTP response handler
 struct HTTPResponse {
     std::string data;
