@@ -3,6 +3,7 @@
 //
 
 #include <someNetwork.h>
+#include <someLogger.h>
 
 #include "root_certificates.hpp"
 
@@ -16,8 +17,6 @@
 #include <iostream>
 #include <fstream>
 #include <filesystem>
-
-#include "peocl_logger.h"
 
 typedef unsigned char uchar;
 

@@ -1,11 +1,12 @@
 
+#include <someService.h>
+#include <someLogger.h>
+#include <someNetwork.h>
+
 #include <iostream>
 #include <filesystem>
 #include <thread>
 #include <chrono>
-#include <peocl_logger.h>
-#include <service.h>
-#include <network.h>
 
 namespace fs = std::filesystem; // For C++17
 namespace fs = std::filesystem;
