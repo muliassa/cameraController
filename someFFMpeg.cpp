@@ -1,8 +1,8 @@
 #include <someFFMpeg.h>
-
 #include <iostream>
 
 void someFFMpeg::saveAVFrameAsJPEG(AVFrame *frame, const string& path, int quality) {
+ 
     const AVCodec *codec = avcodec_find_encoder(AV_CODEC_ID_MJPEG);
     AVCodecContext *ctx = avcodec_alloc_context3(codec);
     
