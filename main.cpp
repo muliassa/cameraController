@@ -13,44 +13,37 @@ int main(int argc, char* argv[]) {
 
 json config;
 string root;
-ZCAMController *leftCamera;
-ZCAMController *rightCamera;
+ZCAMController *camera;
 
-	string site = argc > 1 ? argv[1] : "tlv1"; 
+	string site = argv[1]; 
 
+	string cam_id = argv[2];
+	
 	config = someLogger::loadConfig(string("config/") + site + string(".json"));
 	
 	config["host"] = site;	
 
 	root = config["files"].get<string>();
-    someLogger::getInstance(root + "logs/zcam.log")->log("start zcam controller");
+
+    someLogger::getInstance(root + "logs/zcam" + cam_id + ".log")->log("start zcam controller");
 
     json cameras = config["cameras"];
 
-	leftCamera = new ZCAMController(config, 0);
+	camera = new ZCAMController(config, stoi(cam_id));
 
-	rightCamera = new ZCAMController(config, 1);
-
-    thread leftThread([leftCamera]() {
-        leftCamera->run();
-    });
-
-    thread rightThread([rightCamera]() {
-        rightCamera->run();
+    thread camThread([leftCamera]() {
+        camera->run();
     });
 
     string serviceName = config["service"].get<string>();
 
-    auto service = new someService(config, serviceName);
+    auto service = new someService(config, serviceName + cam_id);
+
     someLogger::getInstance()->log("start service");
     service->run();
         
-    if (leftThread.joinable()) {
-        leftThread.join();
-    }
-        
-    if (rightThread.joinable()) {
-        rightThread.join();
+    if (camThread.joinable()) {
+        camThread.join();
     }
 
 }
