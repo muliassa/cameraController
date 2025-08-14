@@ -25,10 +25,8 @@ using namespace std;
     int video_stream_index = -1;
         
     // ZCAM E2 parameter ranges
-    vector<int> iso_values = {100, 125, 160, 200, 250, 320, 400, 500, 640, 800, 1000, 1250, 1600, 2000, 2500, 3200, 4000, 5000, 6400, 8000, 10000, 12800};
-    vector<int> native_iso_values = {500, 2500}; // Dual native ISO for E2
-    pair<double, double> ev_range = {-3.0, 3.0};
-    vector<string> aperture_values = {"1.4", "1.6", "1.8", "2.0", "2.2", "2.5", "2.8", "3.2", "3.5", "4.0", "4.5", "5.0", "5.6", "6.3", "7.1", "8.0", "9.0", "10", "11", "13", "14", "16"};
+    vector<int> iso_values = {400,500,640,800,1000,1250,1600,2000,2500,3200,4000,5000,6400,8000,10000,12800,16000,20000,25600,32000,40000,51200,64000};
+    vector<string> iris_values = {"1.4", "1.6", "1.8", "2.0", "2.2", "2.5", "2.8", "3.2", "3.5", "4.0", "4.5", "5.0", "5.6", "6.3", "7.1", "8.0", "9.0", "10", "11", "13", "14", "16"};
     
     // Control settings
     bool auto_adjust_enabled = true;
@@ -282,6 +280,18 @@ using namespace std;
             } else if (settings.iso < 25600) {
                 new_iso = 25600; // High but usable
                 reason = "Extremely dark - ISO to 25600";
+            } else if (settings.iso < 32000) {
+                new_iso = 32000; // High but usable
+                reason = "Extremely dark - ISO to 25600";
+            } else if (settings.iso < 40000) {
+                new_iso = 40000; // High but usable
+                reason = "Extremely dark - ISO to 40000";
+            } else if (settings.iso < 51200) {
+                new_iso = 51200; // High but usable
+                reason = "Extremely dark - ISO to 51200";
+            } else if (settings.iso < 64000) {
+                new_iso = 64000; // High but usable
+                reason = "Extremely dark - ISO to MAX 64000";
             } else if (settings.iris != settings.min_iris) {
                 // Only open iris after exhausting ISO options
                 if (applySetting("iris", settings.min_iris)) {
@@ -379,9 +389,9 @@ using namespace std;
                         auto now = std::chrono::system_clock::now();
                         auto time_t = std::chrono::system_clock::to_time_t(now);       
                         std::stringstream ss;
-                        ss << root << "zcam/" << camera_id << std::put_time(std::localtime(&time_t), "%H%M%S") << ".JPG";
+                        ss << root << "zcam/" << camera_id << std::put_time(std::localtime(&time_t), "%H%M%S");
                         snapshot = ss.str();
-                        someFFMpeg::saveAVFrameAsJPEG(frame, snapshot, 100);
+                        someFFMpeg::saveAVFrameAsJPEG(frame, snapshot + ".JPG", 100);
 
                         width = frame->width;
                         height = frame->height;
@@ -492,27 +502,32 @@ using namespace std;
         return (tm.tm_hour >= start_hour && tm.tm_hour < end_hour);
     }
 
-    void ZCAMController::singleRun() {
+    bool ZCAMController::monitorCam() {
 
         if (!isOperatingHours()) {
             std::cout << "😴 Outside operating hours, sleeping..." << std::endl;
-            return;
+            return false;
         }
 
         if (!initializeStream()) {
             std::cout << "❌ Failed to initialize stream" << std::endl;
-            return;
+            return false;
         }
         
         if (!readCurrentSettings()) {
             std::cout << "❌ Failed to read camera settings" << std::endl;
-            return;
+            return false;
         }
         
         cout << "✅ Current settings: ISO " << settings.iso << ", f/" << settings.iris << std::endl;
             
         std::vector<uint8_t> rgb_data;
         int width, height;
+
+        bool changed = false;
+
+        auto iso = settings.iso;
+        auto iris = settings.iris;
             
         if (captureFrame(rgb_data, width, height)) {
             ExposureMetrics metrics = analyzeExposure(rgb_data, width, height);    
@@ -520,7 +535,7 @@ using namespace std;
                          << metrics.brightness << "/255, Contrast: " << metrics.contrast 
                          << ", Score: " << metrics.exposure_score << "/100" << std::endl;
                 
-                adjustExposure(metrics);
+                changed = adjustExposure(metrics);
         } else {
             cout << "   ⚠️ Frame capture failed" << std::endl;
         }      
@@ -532,16 +547,29 @@ using namespace std;
         params["brightness"] = metrics.brightness;
         params["contrast"] = metrics.contrast;
         params["exposure"] = metrics.exposure_score; 
-        params["snapshot"] = host + snapshot;  
+        params["snapshot"] = host + snapshot + ".JPG";
+
+        if (settings.iso != iso) params["frame_iso"] = iso;
+        if (settings.iris != iris) params["frame_iris"] = iris;
+
+        ofstream statusLog(snapshot + ".json");
+        if (statusLog.is_open()) {
+            statusLog << params.dump(4); // The 4 creates an indentation of 4 spaces
+            statusLog.close();
+        }    
 
         someNetwork net;
         net.https_request(server, "/api/caminfo", http::verb::post, params);
+
+        return changed;
 
     }
 
     void ZCAMController::run() {
         while (!stop) {
-            singleRun();
-            std::this_thread::sleep_for(std::chrono::seconds(60 * refresh));             
+            if (monitorCam())
+                std::this_thread::sleep_for(std::chrono::seconds(10)); 
+            else             
+                std::this_thread::sleep_for(std::chrono::seconds(60 * refresh));             
         }
     }

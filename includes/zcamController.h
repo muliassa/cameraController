@@ -95,7 +95,7 @@ private:
     bool detectVideoStream();
     bool connect();
 	bool captureFrame(vector<uint8_t>& rgb_data, int& width, int& height);
-    void singleRun();
+    bool monitorCam();
     void cleanup();
 
 public:
