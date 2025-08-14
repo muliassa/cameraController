@@ -7,7 +7,7 @@
 using namespace std;
 using json = nlohmann::json;
 
-string config;
+json config;
 string root;
 ZCAMController *left;
 ZCAMController *right;
