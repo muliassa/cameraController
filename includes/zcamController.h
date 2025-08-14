@@ -2,6 +2,7 @@
 #define ZCAM_CONTROLLER_H
 
 #include <string>
+#include <iostream>
 #include <nlohmann/json.hpp>
 
 #include <someNetwork.h>
