@@ -1419,9 +1419,9 @@ struct ZCAMSettings {
         params["camera"] = camera_id;
         params["iso"] = camera_state.current_iso;
         params["iris"] = camera_state.current_iris;
-        params["mean_brightness"] = exposure_metrics.mean_brightness;
+        params["brightness"] = exposure_metrics.brightness;
         params["contrast"] = exposure_metrics.contrast;
-        params["exposure_score"] = exposure_metrics.exposure_score;      
+        params["exposure"] = exposure_metrics.exposure_score;      
 
         someNetwork net;
         net.https_request(server, "/api/caminfo", http::verb::post, params);
