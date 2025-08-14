@@ -1,11 +1,12 @@
-#ifndef LOGGER_H
-#define LOGGER_H
+#ifndef SOME_LOGGER_H
+#define SOME_LOGGER_H
 
 #include <vector>
 #include <string>
 #include <cstdio>
 #include <cstdint>
 #include <filesystem>
+#include <fstream>
 #include <nlohmann/json.hpp>
 
 using namespace std;
