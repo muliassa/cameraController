@@ -74,6 +74,10 @@ private:
     string rtsp_url;
     string http_base_url;
 
+    ofstream log_file;
+
+    CameraSettings settings;
+
 	bool isOperatingHours();
 	bool readCurrentSettings();
     ExposureMetrics analyzeExposure(const vector<uint8_t>& rgb_data, int width, int height);
