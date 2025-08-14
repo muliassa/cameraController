@@ -121,7 +121,9 @@ int main(int argc, char* argv[]) {
         rightCamera->run();
     });
 
-    auto service = new someService(config);
+    string serviceName = config["service"].get<string>();
+
+    auto service = new someService(config, serviceName);
     someLogger::getInstance()->log("start service");
     service->run();
         
