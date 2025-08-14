@@ -11,13 +11,13 @@
 using namespace std;
 using json = nlohmann::json;
 
-class Service {
+class someService {
     json config;
     string server;
     string host;
     string serviceName;
 public:
-    explicit Service(json config, string serviceName);
+    explicit someService(json config, string serviceName);
     void post_status(string status);
     void post_response(json, string status, json response = json());
     void run();
