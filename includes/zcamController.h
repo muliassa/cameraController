@@ -1,3 +1,11 @@
+#ifndef ZCAM_CONTROLLER_H
+#define ZCAM_CONTROLLER_H
+
+#include <string>
+#include <nlohmann/json.hpp>
+
+using namespace std;
+
 class ZCAMController {
 private:
 	bool stop = false;
@@ -11,5 +19,7 @@ private:
     string http_base_url;
 
 public:
-	ZCAMController(json config);
+    ZCAMController(const json& config, const int cam_idx);
 };
+
+#endif
