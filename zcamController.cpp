@@ -952,12 +952,10 @@ using namespace std;
     }
 
     void ZCAMController::runLoop() {
-
         while (!stop) {
-            singleRun()
-            std::this_thread::sleep_for(std::chrono::seconds(300)); // 5 MIN            
+            singleRun();
+            this_thread::sleep_for(chrono::seconds(60));             
         }
-
     }
 
 
