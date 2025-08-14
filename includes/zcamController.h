@@ -90,6 +90,7 @@ private:
     bool applySetting(const string& param, const string& value);
 	bool initializeStream();
     bool detectVideoStream();
+    bool connect();
 	bool captureFrame(vector<uint8_t>& rgb_data, int& width, int& height);
     void singleRun();
     void cleanup();
