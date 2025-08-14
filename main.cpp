@@ -49,8 +49,8 @@ ZCAMController *rightCamera;
         leftThread.join();
     }
         
-    // if (rightThread.joinable()) {
-    //     rightThread.join();
-    // }
+    if (rightThread.joinable()) {
+        rightThread.join();
+    }
 
 }
