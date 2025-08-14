@@ -18,7 +18,7 @@ using namespace std;
 
 class someFFMpeg {
 public:
-	static void saveAVFrameAsJPEG(AVFrame *frame, string path, int quality);
+	static void saveAVFrameAsJPEG(AVFrame *frame, const string& path, int quality);
 };
 
 #endif 
