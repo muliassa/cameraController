@@ -36,12 +36,14 @@ using namespace std;
 
     ZCAMController::ZCAMController(const json& config, const int cam_idx) {
 
-        rtsp_url = "rtsp://" + ip + "/live_stream";
-        http_base_url = "http://" + ip + "/ctrl";
         camera_ip = config["ipaddr"][cam_idx].get<string>();
         camera_id = config["camera"][cam_idx].get<string>();
+
+        rtsp_url = "rtsp://" + camera_ip + "/live_stream";
+        http_base_url = "http://" + camera_ip + "/ctrl";
+
         server = config["server"].get<string>();
-        
+
         // Initialize FFmpeg
         #if LIBAVFORMAT_VERSION_INT < AV_VERSION_INT(58, 9, 100)
         av_register_all();
