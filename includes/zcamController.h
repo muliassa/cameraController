@@ -76,9 +76,11 @@ private:
 
 	bool isOperatingHours();
 	bool readCurrentSettings();
+    ExposureMetrics analyzeExposure(const vector<uint8_t>& rgb_data, int width, int height);
     bool adjustExposure(const ExposureMetrics& metrics);
+    bool applySetting(const string& param, const string& value);
 	bool initializeStream();
-	bool captureFrame(std::vector<uint8_t>& rgb_data, int& width, int& height);
+	bool captureFrame(vector<uint8_t>& rgb_data, int& width, int& height);
     void singleRun();
 
 public:
