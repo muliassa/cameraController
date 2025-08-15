@@ -65,6 +65,7 @@ private:
 	string root;
 	string snapshot;
 	int refresh = 5;
+	bool auto_adjust = false;
 	
 	bool stop = false;
 	string server;

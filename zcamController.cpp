@@ -29,7 +29,6 @@ using namespace std;
     vector<string> iris_values = {"1.4", "1.6", "1.8", "2.0", "2.2", "2.5", "2.8", "3.2", "3.5", "4.0", "4.5", "5.0", "5.6", "6.3", "7.1", "8.0", "9.0", "10", "11", "13", "14", "16"};
     
     // Control settings
-    bool auto_adjust_enabled = true;
     double confidence_threshold = 0.6;  // Only apply changes if confidence > 60%
     int changes_applied = 0;
 
@@ -40,6 +39,9 @@ using namespace std;
 
         if (config.count("refresh")>0)
             refresh = config["refresh"].get<int>();
+
+        if (config.count("auto")>0)
+            auto_adjust = config["auto"].get<bool>();
 
         camera_ip = config["ipaddr"][cam_idx].get<string>();
         camera_id = config["cameras"][cam_idx].get<string>();
@@ -534,8 +536,7 @@ using namespace std;
                 std::cout << "   Brightness: " << std::fixed << std::setprecision(1) 
                          << metrics.brightness << "/255, Contrast: " << metrics.contrast 
                          << ", Score: " << metrics.exposure_score << "/100" << std::endl;
-                
-                changed = adjustExposure(metrics);
+                if (auto_adjust) changed = adjustExposure(metrics);
         } else {
             cout << "   ⚠️ Frame capture failed" << std::endl;
         }      
