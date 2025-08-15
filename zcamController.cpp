@@ -176,6 +176,12 @@ using namespace std;
             // camera_state.iris_options = resp.json["opts"]; 
         }
 
+        resp = httpRequest("/ctrl/temperature");
+        if (resp.status == 200 && resp.json.count("msg") > 0) {
+            camera_state.temperature = stoi(resp.json["msg"].get<string>());
+            // camera_state.iris_options = resp.json["opts"]; 
+        }
+
         return resp.status == 200;
     }
     
@@ -545,6 +551,7 @@ using namespace std;
         params["camera"] = camera_id;
         params["iso"] = settings.iso;
         params["iris"] = settings.iris;
+        params["temperature"] = camera_state.temperature;
         params["brightness"] = metrics.brightness;
         params["contrast"] = metrics.contrast;
         params["exposure"] = metrics.exposure_score; 

@@ -50,6 +50,8 @@ struct CameraState {
     // Scene analysis
     double sun_factor = 0.5;
     string scene_type = "unknown";
+
+    int temperature = 0;
     
     // Targets
     double target_brightness = 128.0;
