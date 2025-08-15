@@ -269,7 +269,7 @@ using namespace std;
                  << ", Score=" << metrics.exposure_score << std::endl;
         
         bool changed = false;
-        std::string reason;
+        string reason;
         
         // AGGRESSIVE ISO STRATEGY - Use full range, minimize iris changes
         if (brightness_error < -settings.brightness_tolerance) {
@@ -288,18 +288,18 @@ using namespace std;
             } else if (settings.iso < 25600) {
                 new_iso = 25600; // High but usable
                 reason = "Extremely dark - ISO to 25600";
-            } else if (settings.iso < 32000) {
-                new_iso = 32000; // High but usable
-                reason = "Extremely dark - ISO to 25600";
-            } else if (settings.iso < 40000) {
-                new_iso = 40000; // High but usable
-                reason = "Extremely dark - ISO to 40000";
+            // } else if (settings.iso < 32000) {
+            //     new_iso = 32000; // High but usable
+            //     reason = "Extremely dark - ISO to 25600";
+            // } else if (settings.iso < 40000) {
+            //     new_iso = 40000; // High but usable
+            //     reason = "Extremely dark - ISO to 40000";
             } else if (settings.iso < 51200) {
                 new_iso = 51200; // High but usable
-                reason = "Extremely dark - ISO to 51200";
-            } else if (settings.iso < 64000) {
-                new_iso = 64000; // High but usable
-                reason = "Extremely dark - ISO to MAX 64000";
+                reason = "Extremely dark - ISO to 51200 MAX";
+            // } else if (settings.iso < 64000) {
+            //     new_iso = 64000; // High but usable
+            //     reason = "Extremely dark - ISO to MAX 64000";
             } else if (settings.iris != settings.min_iris) {
                 // Only open iris after exhausting ISO options
                 if (applySetting("iris", settings.min_iris)) {
@@ -348,8 +348,8 @@ using namespace std;
                 
                 if (current_iris < 11) {
                     new_iris = "11";
-                } else if (current_iris < 14) {
-                    new_iris = "14";
+                // } else if (current_iris < 14) {
+                //     new_iris = "14";
                 } else {
                     new_iris = settings.max_iris;
                 }
@@ -361,6 +361,8 @@ using namespace std;
                 }
             }
         }
+
+        if (!reason.empty()) someLogger::getInstance()->log(reason);
         
         return changed;
     }
@@ -576,7 +578,7 @@ using namespace std;
     void ZCAMController::run() {
         while (!stop) {
             if (monitorCam())
-                std::this_thread::sleep_for(std::chrono::seconds(10)); 
+                std::this_thread::sleep_for(std::chrono::seconds(60)); 
             else             
                 std::this_thread::sleep_for(std::chrono::seconds(60 * refresh));             
         }

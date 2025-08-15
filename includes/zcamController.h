@@ -29,7 +29,7 @@ struct CameraSettings {
     
     // Iris constraints for surf
     std::string min_iris = "8";       // f/8 - good contrast, not too wide
-    std::string max_iris = "16";      // f/16 - reasonable light control
+    std::string max_iris = "14";      // f/14 - reasonable light control
 };
 
 struct CameraState {
