@@ -280,7 +280,10 @@ using namespace std;
             // Too dark - use full ISO range before touching iris
             int new_iso = settings.iso;
             
-            if (settings.iso < 2500) {
+            if (settings.iso < 1000) {
+                new_iso = 1000; 
+                reason = "Dark - jump to ISO 1000";
+            } else if (settings.iso < 2500) {
                 new_iso = 2500;  // Jump to high native
                 reason = "Dark - jump to native ISO 2500";
             } else if (settings.iso < 6400) {
