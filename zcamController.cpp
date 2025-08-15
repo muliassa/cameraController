@@ -257,6 +257,7 @@ using namespace std;
     }
     
     bool ZCAMController::adjustExposure(const ExposureMetrics& metrics) {
+
         double brightness_error = metrics.brightness - settings.target_brightness;
         bool needs_adjustment = std::abs(brightness_error) > settings.brightness_tolerance;
         
@@ -273,6 +274,9 @@ using namespace std;
         
         // AGGRESSIVE ISO STRATEGY - Use full range, minimize iris changes
         if (brightness_error < -settings.brightness_tolerance) {
+
+            cout << camera_id << " TOO DARK" << endl;
+
             // Too dark - use full ISO range before touching iris
             int new_iso = settings.iso;
             
@@ -318,19 +322,22 @@ using namespace std;
             }
             
         } else if (brightness_error > settings.brightness_tolerance) {
+
+            cout << camera_id << " TOO BRIGHT" << endl;
+
             // Too bright - PRIORITIZE keeping good iris, reduce ISO aggressively
             
             // Check if we can solve with ISO reduction first
             if (settings.iso > 400) {
                 int new_iso = settings.iso;
                 
-                if (settings.iso > 6400) {
+                if (settings.iso >= 6400) {
                     new_iso = settings.iso / 2;  // Big steps down from high ISO
                     reason = "Bright - large ISO reduction " + std::to_string(settings.iso) + "→" + std::to_string(new_iso);
-                } else if (settings.iso > 2500) {
+                } else if (settings.iso >= 2500) {
                     new_iso = 1000;  // Step down to medium
                     reason = "Moderately bright - ISO to 1000";
-                } else if (settings.iso > 500) {
+                } else if (settings.iso >= 500) {
                     new_iso = 400;   // Minimum ISO
                     reason = "Bright - minimum ISO 400";
                 }
