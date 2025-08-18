@@ -126,6 +126,7 @@ using namespace std;
     }
     
     void ZCAMController::cleanup() {
+
         if (sws_ctx) {
             sws_freeContext(sws_ctx);
             sws_ctx = nullptr;
@@ -580,6 +581,8 @@ using namespace std;
 
         someNetwork net;
         net.https_request(server, "/api/caminfo", http::verb::post, params);
+
+        cleanup();
 
         return changed;
 
