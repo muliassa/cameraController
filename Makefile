@@ -25,7 +25,7 @@ LIB_DIRS = -L/lib/x86_64-linux-gnu \
 
 # Libraries - CUDA 12.x NPP libraries with explicit FFmpeg 6.1.1 paths
 LIBS = -lcurl -ljsoncpp -pthread -lssl -lcrypto \
-    -l:ibavformat.so.60.16.100 \
+    -l:libavformat.so.60.16.100 \
     -l:libavcodec.so.60.31.102 \
     -l:libavutil.so.58.29.100 \
     -l:libswscale.so.7.5.100 \
