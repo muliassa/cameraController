@@ -12,10 +12,13 @@ TARGET = $(BUILD_DIR)/cameraController
 # Include directories
 INCLUDES = 	-Iincludes \
 			-I/usr/include/x86_64-linux-gnu \
-			-I/usr/include/jsoncpp
+			-I/usr/include/jsoncpp \
+			-I/usr/include/opencv4
 
 # Library directories
-LIB_DIRS = -L/lib/x86_64-linux-gnu/
+LIB_DIRS = -L/lib/x86_64-linux-gnu -L/usr/local/lib/opencv
+
+
 
 # Libraries - CUDA 12.x NPP libraries with proper order
 # LIBS = -lcuda -lcudart -lnvcuvid -lnvidia-encode -lnppig -lnppc \
@@ -23,7 +26,8 @@ LIB_DIRS = -L/lib/x86_64-linux-gnu/
 
 # Libraries - CUDA 12.x NPP libraries with explicit FFmpeg 6.1.1 paths
 LIBS = -lavformat -lavcodec -lavutil -lswscale \
-    -lcurl -ljsoncpp -pthread -lssl -lcrypto
+    -lcurl -ljsoncpp -pthread -lssl -lcrypto \
+    -lopencv_core -lopencv_imgproc -lopencv_imgcodecs -lopencv_highgui 
 
 # Compiler flags
 CXXFLAGS = -std=c++17 -O2 -Wall
