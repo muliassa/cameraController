@@ -87,7 +87,7 @@
 
     AVFrame *ZCAM::getFrame() {
         
-        if (!format_ctx || !codec_ctx) return false;
+        if (!format_ctx || !codec_ctx) return nullptr;
         
         AVPacket *packet = av_packet_alloc();
         AVFrame *frame = av_frame_alloc();
@@ -95,7 +95,7 @@
         if (!packet || !frame) {
             if (packet) av_packet_free(&packet);
             if (frame) av_frame_free(&frame);
-            return false;
+            return nullptr;
         }
         
         while (true) {

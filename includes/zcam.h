@@ -29,6 +29,7 @@ class ZCAM {
 
     AVFormatContext *format_ctx = nullptr;
     AVCodecContext *codec_ctx = nullptr;
+    const AVCodec *codec = nullptr;  // Use const AVCodec* for newer FFmpeg versions
     int video_stream_index = -1;
 
 	bool detectVideoStream();
