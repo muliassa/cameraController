@@ -1,3 +1,4 @@
+#include <zcam.h>
    
     ZCAM::ZCAM(const json& config, const int cam_idx) {
 
