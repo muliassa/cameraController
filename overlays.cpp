@@ -1,5 +1,5 @@
 #include <overlays.h>
-#include <peocl_logger.h>
+#include <someLogger.h>
 
     FrameOverlayProcessor::FrameOverlayProcessor(int width, int height, AVPixelFormat format) 
         : filterGraph(nullptr), bufferSrcCtx(nullptr), bufferSinkCtx(nullptr),
