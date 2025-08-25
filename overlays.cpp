@@ -541,6 +541,8 @@
                 drawTextArgs += ":y=" + std::to_string(y);
                 drawTextArgs += ":fontsize=20";
                 drawTextArgs += ":fontcolor=" + color;
+
+                cout << "drawTextArgs: " << drawTextArgs << endl;
                 
                 // Add font
                 #ifdef _WIN32
@@ -575,6 +577,8 @@
                 lastFilter = drawTextCtx;
 
         }
+
+        cout << "POST GRID" << endl;
 
         // Connect through overlay if logo exists
         if (logoBufferCtx && overlayCtx) {
@@ -620,7 +624,7 @@
             }
         }        
 
-        DEBUG_PRINT("configGraph");
+        cout << "configGraph" << endl;
         
         // Configure graph
         ret = avfilter_graph_config(filterGraph, nullptr);
@@ -643,10 +647,13 @@
         DEBUG_PRINT("end of init");
         
         initialized = true;
+
         return true;
     }
     
     AVFrame* FrameOverlayProcessor::processFrame(AVFrame* inputFrame) {
+
+    cout << "processFrame" << endl;
 
     if (inputFrame->width != frameWidth || inputFrame->height != frameHeight) {
         frameWidth = inputFrame->width;
