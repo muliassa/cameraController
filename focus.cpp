@@ -8,12 +8,31 @@
         cout << "DELETE FOCUS" << endl;
         if (swsContext != nullptr) sws_freeContext(swsContext);
     }
+
+    bool Focus::isSupportedYUVFormat(int format) {
+        AVPixelFormat pixFmt = static_cast<AVPixelFormat>(format);
+        
+        switch (pixFmt) {
+            case AV_PIX_FMT_YUV420P:    // 0 - Standard YUV 4:2:0
+            case AV_PIX_FMT_YUVJ420P:   // 12 - JPEG YUV 4:2:0 (full range)
+            case AV_PIX_FMT_YUV422P:    // 4 - YUV 4:2:2
+            case AV_PIX_FMT_YUVJ422P:   // 13 - JPEG YUV 4:2:2
+            case AV_PIX_FMT_YUV444P:    // 5 - YUV 4:4:4
+            case AV_PIX_FMT_YUVJ444P:   // 14 - JPEG YUV 4:4:4
+            case AV_PIX_FMT_YUV410P:    // 6 - YUV 4:1:0
+            case AV_PIX_FMT_YUV411P:    // 7 - YUV 4:1:1
+            case AV_PIX_FMT_GRAY8:      // 8 - Grayscale
+                return true;
+            default:
+                return false;
+        }
+    }
     
     // Work directly with decoded frame - no conversion needed
     double Focus::fastROI(AVFrame* frame, int x0, int y0, int x1, int y1) {
-
-        // Most H.264 videos are YUV420P
-        if (frame->format != AV_PIX_FMT_YUV420P) {
+    
+        // Check if it's a supported YUV format
+        if (!isSupportedYUVFormat(frame->format)) {
             std::cerr << "Unsupported pixel format: " << frame->format << std::endl;
             return -1.0;
         }
