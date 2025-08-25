@@ -18,7 +18,7 @@ class someService {
     string server;
     string host;
     string serviceName;
-    ZCAMSnapshot* shapshotService;
+    ZCAMSnapshot* snapshotService;
 public:
     explicit someService(json config, string serviceName);
     void post_status(string status);
