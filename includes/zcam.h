@@ -1,3 +1,5 @@
+#ifndef ZCAM_H
+#define ZCAM_H
 
 #include <string>
 #include <vector>
@@ -39,3 +41,5 @@ public:
     bool captureFrame(vector<uint8_t>& rgb_data, int& width, int& height);
     void cleanup();
 };
+
+#endif
