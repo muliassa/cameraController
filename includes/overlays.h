@@ -19,8 +19,8 @@ extern "C" {
 
 using namespace std;
 
-#define DEBUG_PRINT(msg) ((void)0) // cout << "[DEBUG] " << msg << std::endl
-// #define DEBUG_PRINT(msg) cout << "[DEBUG] " << msg << std::endl
+// #define DEBUG_PRINT(msg) ((void)0) // cout << "[DEBUG] " << msg << std::endl
+#define DEBUG_PRINT(msg) cout << "[DEBUG] " << msg << std::endl
 #define ERROR_PRINT(msg) cerr << "[ERROR] " << msg << std::endl
 
 struct GridText {
