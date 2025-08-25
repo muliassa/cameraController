@@ -16,9 +16,8 @@ INCLUDES = 	-Iincludes \
 			-I/usr/include/opencv4
 
 # Library directories
-LIB_DIRS = -L/lib/x86_64-linux-gnu -L/usr/local/lib/opencv
-
-
+LIB_DIRS = -L/lib/x86_64-linux-gnu \
+		   -L/usr/local/lib/opencv
 
 # Libraries - CUDA 12.x NPP libraries with proper order
 # LIBS = -lcuda -lcudart -lnvcuvid -lnvidia-encode -lnppig -lnppc \
@@ -27,12 +26,12 @@ LIB_DIRS = -L/lib/x86_64-linux-gnu -L/usr/local/lib/opencv
 # Libraries - CUDA 12.x NPP libraries with explicit FFmpeg 6.1.1 paths
 LIBS = -lcurl -ljsoncpp -pthread -lssl -lcrypto \
     -lopencv_core -lopencv_imgproc -lopencv_imgcodecs -lopencv_highgui \
-#     -lavformat -lavcodec -lavutil -lswscale -lavfilter \
-	-l:libavformat.so.60.16.100 \
-    -l:libavcodec.so.60.31.102 \
-    -l:libavutil.so.58.29.100 \
-    -l:libswscale.so.7.5.100 \
-    -l:libavfilter.so.9.12.100
+    -lavformat -lavcodec -lavutil -lswscale -lavfilter 
+# 	-l:libavformat.so.60.16.100 \
+#     -l:libavcodec.so.60.31.102 \
+#     -l:libavutil.so.58.29.100 \
+#     -l:libswscale.so.7.5.100 \
+#     -l:libavfilter.so.9.12.100
 
 # Compiler flags
 CXXFLAGS = -std=c++17 -O2 -Wall
