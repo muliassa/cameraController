@@ -33,7 +33,7 @@ public:
     double measure(AVFrame* frame, Method method = LAPLACIAN);
     static double fast(AVFrame* frame);
 	static double fastROI(AVFrame* frame, int x0, int y0, int x1, int y1);
-    bool isSupportedYUVFormat(int format);
+    static bool isSupportedYUVFormat(int format);
 
 private:
     static double measure(const cv::Mat& frame, Method method = LAPLACIAN, const cv::Rect* bbox = nullptr);
