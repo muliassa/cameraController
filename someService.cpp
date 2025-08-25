@@ -133,7 +133,7 @@ void someService::run() {
 
             if (api == "snapshot") {
                 string path = snapshotService->take();
-                json result;
+                auto result = nlohmann::json();
                 result["path"] = path; 
                 post_response(json, "ok", result);
             }
