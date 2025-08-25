@@ -1,12 +1,12 @@
 #include <snapshot.h>
 
-Snapshot::Snapshot(json config) {
+ZCAMSnapshot::ZCAMSnapshot(json config) {
 	this.config = config;
 	root = config["files"].get<string>();
 	cam_id = config["cam_id"].get<string>();
 }
 
-string Snapshot::take() {
+string ZCAMSnapshot::take() {
 	string path = root + "/"
 	auto now = std::chrono::system_clock::now();
     auto time_t = std::chrono::system_clock::to_time_t(now);       

@@ -22,7 +22,7 @@ someService::someService(json config, string serviceName) {
     this->host = config["host"].get<string>();
     this->serviceName = serviceName;
 
-    snapshotService = new Snapshot(config);
+    snapshotService = new ZCAMSnapshot(config);
 
     std::cout << "service ready" << std::endl;
 }
@@ -132,7 +132,7 @@ void someService::run() {
             // TODO: generic STUB with callbacks 
 
             if (api == "snapshot") {
-                string path = snapshot->take();
+                string path = snapshotService->take();
                 auto result = json();
                 result["path"] = path; 
                 post_response(json, "ok", result);
