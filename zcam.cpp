@@ -1,4 +1,5 @@
 #include <zcam.h>
+#include <iostream>
 #include <chrono>
 #include <someFFMpeg.h>
    
