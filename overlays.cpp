@@ -539,7 +539,7 @@
                 std::string drawTextArgs = "text='" + to_string(i) + ":" + focusText + "'";
                 drawTextArgs += ":x=" + std::to_string(x);
                 drawTextArgs += ":y=" + std::to_string(y);
-                drawTextArgs += ":fontsize=20";
+                drawTextArgs += ":fontsize=40";
                 drawTextArgs += ":fontcolor=" + color;
 
                 cout << "drawTextArgs: " << drawTextArgs << endl;
@@ -699,22 +699,8 @@
         ERROR_PRINT("inputFrame is NULL!");
         return nullptr;
     }
-
-    // 2. Validate frame data
-    DEBUG_PRINT("Frame validation:");
-    DEBUG_PRINT("  Format: " << inputFrame->format);
-    DEBUG_PRINT("  Width: " << inputFrame->width);
-    DEBUG_PRINT("  Height: " << inputFrame->height);
-    DEBUG_PRINT("  Data[0]: " << (void*)inputFrame->data[0]);
-    DEBUG_PRINT("  Data[1]: " << (void*)inputFrame->data[1]);
-    DEBUG_PRINT("  Data[2]: " << (void*)inputFrame->data[2]);
-    DEBUG_PRINT("  Linesize[0]: " << inputFrame->linesize[0]);
-
     // 3. Check if frame properties match buffer source
     AVFilterContext* src = bufferSrcCtx;
-    DEBUG_PRINT("Buffer source context:");
-    DEBUG_PRINT("  Name: " << (src->name ? src->name : "NULL"));
-    DEBUG_PRINT("  Filter: " << (src->filter ? src->filter->name : "NULL"));
 
     // 4. Validate frame is properly allocated
     if (inputFrame->format == AV_PIX_FMT_NONE) {
