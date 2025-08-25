@@ -126,6 +126,8 @@ void someService::run() {
                 if (json.contains("params")) params = json["params"];
             }
 
+            someLogger::getInstance()->log("NEW REQUEST# " + params.dump(4)); 
+
             // auto job = response.json["job"];
             // size_t job_id = job["jobId"];
             // string task = job["task"];
