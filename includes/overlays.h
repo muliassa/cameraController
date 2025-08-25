@@ -69,12 +69,12 @@ private:
     string cropColor = "blue";
     int cropThickness = 3;
 
-    bool initializeFilterGraph();
     AVFrame* convertToRGBA(AVFrame* inputFrame);
     
 public:
     FrameOverlayProcessor(int width, int height, AVPixelFormat format);
     ~FrameOverlayProcessor();
+    bool initializeFilterGraph();
     bool isInitialized() { return initialized; }
     AVFrame* processFrame(AVFrame* inputFrame);
     void setBox(int x, int y, int width, int height, const string& color = "red", int thickness = 3);

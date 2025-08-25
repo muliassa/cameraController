@@ -44,6 +44,7 @@ string ZCAMSnapshot::take() {
             overlayProcessor->setGridText({x0 + 10, y0 + 10, focus, text});
         }
 
+        overlayProcessor->initializeFilterGraph();
 
         AVFrame* snapFrame = overlayProcessor->processFrame(frame);
 		av_frame_free(&frame);
