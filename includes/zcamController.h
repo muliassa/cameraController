@@ -65,6 +65,11 @@ private:
 	atomic<bool> keep_running{true};
 
 	string root;
+    string camera_ip;
+    string camera_id;
+    string rtsp_url;
+    string http_base_url;
+
 	string snapshot;
 	int refresh = 5;
 	bool auto_adjust = false;
@@ -75,10 +80,6 @@ private:
     int start_hour = 6;   // 6 AM
     int end_hour = 22;    // 10 PM
 
-    string camera_ip;
-    string camera_id;
-    string rtsp_url;
-    string http_base_url;
 
     CameraSettings settings;
     CameraState camera_state;
@@ -96,7 +97,6 @@ private:
     bool applySetting(const string& param, const string& value);
 	bool initializeStream();
     bool detectVideoStream();
-    bool connect();
 	bool captureFrame(vector<uint8_t>& rgb_data, int& width, int& height);
     bool monitorCam();
     void cleanup();

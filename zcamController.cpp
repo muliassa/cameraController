@@ -75,56 +75,6 @@ using namespace std;
         avformat_network_deinit();
     }
     
-    bool ZCAMController::connect() {
-        std::cout << "🔌 Connecting to ZCAM..." << std::endl;
-        
-        // Allocate format context
-        format_ctx = avformat_alloc_context();
-        if (!format_ctx) {
-            std::cout << "❌ Failed to allocate format context" << std::endl;
-            return false;
-        }
-        
-        // Set RTSP options - keep it simple but effective
-        AVDictionary *options = nullptr;
-        av_dict_set(&options, "rtsp_transport", "tcp", 0);
-        av_dict_set(&options, "stimeout", "10000000", 0);  // 10 second timeout
-        av_dict_set(&options, "max_delay", "3000000", 0);   // 3 second max delay
-        
-        // Open the stream
-        int ret = avformat_open_input(&format_ctx, rtsp_url.c_str(), nullptr, &options);
-        av_dict_free(&options);
-        
-        if (ret < 0) {
-            char errbuf[AV_ERROR_MAX_STRING_SIZE];
-            av_make_error_string(errbuf, AV_ERROR_MAX_STRING_SIZE, ret);
-            std::cout << "❌ Failed to open stream: " << errbuf << std::endl;
-            return false;
-        }
-        
-        std::cout << "✅ Connected to RTSP stream" << std::endl;
-        
-        // Skip stream info detection - it's causing segfault
-        std::cout << "⚠️ Skipping stream info analysis (causes segfault with this camera)" << std::endl;
-        std::cout << "🔍 Using manual stream detection..." << std::endl;
-        
-        // Check basic stream count first
-        std::cout << "📊 Found " << format_ctx->nb_streams << " streams" << std::endl;
-        
-        if (format_ctx->nb_streams == 0) {
-            std::cout << "❌ No streams found in RTSP feed" << std::endl;
-            return false;
-        }
-        
-        if (video_stream_index == -1) {
-            std::cout << "❌ No video stream found" << std::endl;
-            return false;
-        }
-        
-        std::cout << "✅ Stream detection and decoder setup complete" << std::endl;
-        return true;
-    }
-    
     void ZCAMController::cleanup() {
 
         if (sws_ctx) {
@@ -452,6 +402,7 @@ using namespace std;
     }
     
     bool ZCAMController::detectVideoStream() {
+
         AVPacket *pkt = av_packet_alloc();
         if (!pkt) return false;
         
@@ -489,6 +440,7 @@ using namespace std;
     }
     
     bool ZCAMController::initializeStream() {
+
         std::cout << "🔌 Connecting to RTSP..." << std::endl;
         
         format_ctx = avformat_alloc_context();
