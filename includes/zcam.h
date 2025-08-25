@@ -33,7 +33,7 @@ class ZCAM {
 
 public:
 
-    ZCAM(const nlohmann::json& config, const int cam_idx) {
+    ZCAM(const nlohmann::json& config, const int cam_idx);
     ~ZCAM();
     void initStream();
     void closeStream();
