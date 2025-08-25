@@ -12,10 +12,10 @@ using namespace std;
 using json = nlohmann::json;
 
 class ZCAMSnapshot {
-	
+
 	json config;
 	string root;
-	string cam_id;
+	int cam_idx;
 	string cam_name;
 	ZCAM * zcam;
 

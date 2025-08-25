@@ -7,9 +7,9 @@ ZCAMSnapshot::ZCAMSnapshot(json config) {
 
 	this->config = config;
 	root = config["files"].get<string>();
-	cam_id = config["cam_id"].get<string>();
+	cam_idx = stoi(config["cam_id"].get<string>());
 
-	zcam = new ZCAM(config);
+	zcam = new ZCAM(config, cam_idx);
 }
 
 string ZCAMSnapshot::take() {
