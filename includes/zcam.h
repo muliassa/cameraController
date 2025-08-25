@@ -16,7 +16,7 @@ extern "C" {
 }
 
 using namespace std;
-// using namespace nlohmann;
+using namespace nlohmann;
 
 class ZCAM {
 
@@ -36,7 +36,7 @@ class ZCAM {
 
 public:
 
-    ZCAM(const nlohmann::json& config, const int cam_idx);
+    ZCAM(const json& config, const int cam_idx);
     ~ZCAM();
     void initStream();
     void closeStream();
