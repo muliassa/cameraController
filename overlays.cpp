@@ -684,18 +684,72 @@
     if (inputFrame->format != pixelFormat) {
         ERROR_PRINT("Frame format mismatch! Input: " << inputFrame->format << ", Expected: " << pixelFormat);
         return nullptr;
-    }        
+    }
 
-    // Push frame to buffer source
+    // Enhanced debugging version
     DEBUG_PRINT("Pushing frame to buffer source...");
-    int ret = av_buffersrc_add_frame_flags(bufferSrcCtx, inputFrame, AV_BUFFERSRC_FLAG_KEEP_REF);
+
+    // 1. Validate pointers
+    if (!bufferSrcCtx) {
+        ERROR_PRINT("bufferSrcCtx is NULL!");
+        return nullptr;
+    }
+
+    if (!inputFrame) {
+        ERROR_PRINT("inputFrame is NULL!");
+        return nullptr;
+    }
+
+    // 2. Validate frame data
+    DEBUG_PRINT("Frame validation:");
+    DEBUG_PRINT("  Format: " << inputFrame->format);
+    DEBUG_PRINT("  Width: " << inputFrame->width);
+    DEBUG_PRINT("  Height: " << inputFrame->height);
+    DEBUG_PRINT("  Data[0]: " << (void*)inputFrame->data[0]);
+    DEBUG_PRINT("  Data[1]: " << (void*)inputFrame->data[1]);
+    DEBUG_PRINT("  Data[2]: " << (void*)inputFrame->data[2]);
+    DEBUG_PRINT("  Linesize[0]: " << inputFrame->linesize[0]);
+
+    // 3. Check if frame properties match buffer source
+    AVFilterContext* src = bufferSrcCtx;
+    DEBUG_PRINT("Buffer source context:");
+    DEBUG_PRINT("  Name: " << (src->name ? src->name : "NULL"));
+    DEBUG_PRINT("  Filter: " << (src->filter ? src->filter->name : "NULL"));
+
+    // 4. Validate frame is properly allocated
+    if (inputFrame->format == AV_PIX_FMT_NONE) {
+        ERROR_PRINT("Frame has invalid pixel format");
+        return nullptr;
+    }
+
+    if (inputFrame->width <= 0 || inputFrame->height <= 0) {
+        ERROR_PRINT("Frame has invalid dimensions");
+        return nullptr;
+    }
+
+    // 5. Try without flags first
+    DEBUG_PRINT("Attempting to add frame without flags...");
+    int ret = av_buffersrc_add_frame(bufferSrcCtx, inputFrame);
     if (ret < 0) {
         char error_buf[256];
         av_strerror(ret, error_buf, sizeof(error_buf));
         ERROR_PRINT("Error adding frame to buffer source: " << error_buf);
+        ERROR_PRINT("Return code: " << ret);
         return nullptr;
     }
-    DEBUG_PRINT("Successfully pushed frame to buffer source");
+
+    DEBUG_PRINT("Successfully pushed frame to buffer source");        
+
+    // Push frame to buffer source
+    // DEBUG_PRINT("Pushing frame to buffer source...");
+    // int ret = av_buffersrc_add_frame_flags(bufferSrcCtx, inputFrame, AV_BUFFERSRC_FLAG_KEEP_REF);
+    // if (ret < 0) {
+    //     char error_buf[256];
+    //     av_strerror(ret, error_buf, sizeof(error_buf));
+    //     ERROR_PRINT("Error adding frame to buffer source: " << error_buf);
+    //     return nullptr;
+    // }
+    // DEBUG_PRINT("Successfully pushed frame to buffer source");
     
     // Handle logo if present
     if (logoLoaded && logoFrame && logoBufferCtx) {
