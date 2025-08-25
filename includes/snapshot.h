@@ -9,7 +9,9 @@ using namespace std;
 using json = nlohmann::json;
 
 class Snapshot {
+	json config;
 	string root;
+	string cam_id;
 public:
     explicit Snapshot(json config);
 	string take();

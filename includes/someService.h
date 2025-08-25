@@ -8,6 +8,8 @@
 #include <vector>       // std::vector
 #include <nlohmann/json.hpp>
 
+#include <snapshot.h>
+
 using namespace std;
 using json = nlohmann::json;
 
@@ -16,6 +18,7 @@ class someService {
     string server;
     string host;
     string serviceName;
+    Snapshot* shapshotService;
 public:
     explicit someService(json config, string serviceName);
     void post_status(string status);

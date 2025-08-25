@@ -8,8 +8,6 @@
 #include <thread>
 #include <chrono>
 
-#include <snapshot.h>
-
 namespace fs = std::filesystem;
 
 const std::string b = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";//=
@@ -23,6 +21,8 @@ someService::someService(json config, string serviceName) {
     this->server = this->config["server"].get<string>();
     this->host = config["host"].get<string>();
     this->serviceName = serviceName;
+
+    snapshotService = new Snapshot(config);
 
     std::cout << "service ready" << std::endl;
 }
@@ -132,8 +132,8 @@ void someService::run() {
             // TODO: generic STUB with callbacks 
 
             if (api == "snapshot") {
-                string path = Snapshot::take(config);
-                auto result = nlohmann::json();
+                string path = snapshot->take();
+                auto result = json();
                 result["path"] = path; 
                 post_response(json, "ok", result);
             }
