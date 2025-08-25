@@ -10,7 +10,7 @@ ZCAMSnapshot::ZCAMSnapshot(json config) {
 	root = config["files"].get<string>();
 	cam_idx = stoi(config["cam_id"].get<string>());
 
-	overlayProcessor = make_unique<FrameOverlayProcessor>(1920, 1080, AV_PIX_FMT_YUV420P);
+	overlayProcessor = make_unique<FrameOverlayProcessor>(1920, 1080, AV_PIX_FMT_YUVJ420P); // TODO: Automatic
     overlayProcessor->setFont("", 30);
     overlayProcessor->setFontColor("0x443D24");  
 
