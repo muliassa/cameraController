@@ -38,7 +38,7 @@ public:
 
     ZCAM(const json& config, const int cam_idx);
     ~ZCAM();
-    void initStream();
+    bool initStream();
     void closeStream();
     AVFrame* getFrame();
     bool captureFrame(vector<uint8_t>& rgb_data, int& width, int& height);
