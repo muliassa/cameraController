@@ -28,6 +28,8 @@ ZCAMController *camera;
 	
 	config["host"] = site;	
 
+	config["cam_id"] = cam_id;
+
 	root = config["files"].get<string>();
 
     someLogger::getInstance(root + "logs/zcam" + cam_id + ".log")->log("start zcam controller");

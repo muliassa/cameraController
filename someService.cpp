@@ -128,6 +128,15 @@ void someService::run() {
                 if (json.contains("params")) params = json["params"];
             }
 
+            // TODO: generic STUB with callbacks 
+
+            if (api == "snapshot") {
+                string path = Snapshot::take(config);
+                auto result = nlohmann::json();
+                result["path"] = path; 
+                post_response(json, "ok", result);
+            }
+
             // auto job = response.json["job"];
             // size_t job_id = job["jobId"];
             // string task = job["task"];
