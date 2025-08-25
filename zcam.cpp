@@ -1,5 +1,6 @@
 #include <zcam.h>
 #include <chrono>
+#include <someFFMpeg.h>
    
     ZCAM::ZCAM(const json& config, const int cam_idx) {
 
@@ -140,78 +141,4 @@
         
         video_stream_index = -1;
 
-    }
-
-    bool ZCAM::captureFrame(std::vector<uint8_t>& rgb_data, int& width, int& height) {
-        
-        if (!format_ctx || !codec_ctx) return false;
-        
-        AVPacket *packet = av_packet_alloc();
-        AVFrame *frame = av_frame_alloc();
-        AVFrame *rgb_frame = av_frame_alloc();
-        
-        if (!packet || !frame || !rgb_frame) {
-            if (packet) av_packet_free(&packet);
-            if (frame) av_frame_free(&frame);
-            if (rgb_frame) av_frame_free(&rgb_frame);
-            return false;
-        }
-        
-        bool success = false;
-        int packets_read = 0;
-        
-        while (packets_read < 100 && keep_running) {
-            int ret = av_read_frame(format_ctx, packet);
-            packets_read++;
-            
-            if (ret < 0) break;
-            
-            if (packet->stream_index == video_stream_index) {
-                ret = avcodec_send_packet(codec_ctx, packet);
-                if (ret == 0) {
-                    ret = avcodec_receive_frame(codec_ctx, frame);
-                    if (ret == 0) {
-
-                        auto now = std::chrono::system_clock::now();
-                        auto time_t = std::chrono::system_clock::to_time_t(now);       
-                        std::stringstream ss;
-                        ss << root << "zcam/" << camera_id << std::put_time(std::localtime(&time_t), "%H%M");
-                        snapshot = ss.str();
-                        someFFMpeg::saveAVFrameAsJPEG(frame, snapshot + ".JPG", 100);
-
-                        width = frame->width;
-                        height = frame->height;
-                        
-                        if (!sws_ctx) {
-                            sws_ctx = sws_getContext(
-                                width, height, (AVPixelFormat)frame->format,
-                                width, height, AV_PIX_FMT_RGB24,
-                                SWS_BILINEAR, nullptr, nullptr, nullptr
-                            );
-                        }
-                        
-                        if (sws_ctx) {
-                            int rgb_size = av_image_get_buffer_size(AV_PIX_FMT_RGB24, width, height, 1);
-                            rgb_data.resize(rgb_size);
-                            
-                            av_image_fill_arrays(rgb_frame->data, rgb_frame->linesize,
-                                                rgb_data.data(), AV_PIX_FMT_RGB24, width, height, 1);
-                            
-                            sws_scale(sws_ctx, frame->data, frame->linesize, 0, height,
-                                    rgb_frame->data, rgb_frame->linesize);
-                            
-                            success = true;
-                        }
-                        break;
-                    }
-                }
-            }
-            av_packet_unref(packet);
-        }
-        
-        av_packet_free(&packet);
-        av_frame_free(&frame);
-        av_frame_free(&rgb_frame);
-        
-        return success;
     }
