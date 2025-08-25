@@ -5,7 +5,7 @@ CXX = g++
 BUILD_DIR = build
 
 # Source files - add only the needed SDK implementation files
-SOURCES = main.cpp zcamController.cpp zcamSnapshot.cpp zcam.cpp someService.cpp someLogger.cpp someNetwork.cpp someFFMpeg.cpp
+SOURCES = main.cpp zcamController.cpp zcamSnapshot.cpp zcam.cpp focus.cpp overlays.cpp someService.cpp someLogger.cpp someNetwork.cpp someFFMpeg.cpp
 
 TARGET = $(BUILD_DIR)/cameraController
 

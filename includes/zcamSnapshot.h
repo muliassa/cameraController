@@ -7,6 +7,7 @@
 #include <nlohmann/json.hpp>
 
 #include <zcam.h>
+#include <overlays.h>
 
 using namespace std;
 using json = nlohmann::json;
@@ -18,6 +19,7 @@ class ZCAMSnapshot {
 	int cam_idx;
 	string cam_name;
 	ZCAM * zcam;
+	std::unique_ptr<FrameOverlayProcessor> overlayProcessor;
 
 public:
     explicit ZCAMSnapshot(json config);
