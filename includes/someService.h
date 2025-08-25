@@ -11,7 +11,7 @@
 #include <zcamSnapshot.h>
 
 using namespace std;
-using json = nlohmann::json;
+using namespace nlohmann;
 
 class someService {
     json config;
