@@ -1,3 +1,5 @@
+#include <snapshot.h>
+
 Snapshot::Snapshot(json config) {
 	root = config["files"].get<string>();
 	cam_id = config["cam_id"].get<string>();

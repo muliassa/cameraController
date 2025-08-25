@@ -8,7 +8,8 @@
 #include <thread>
 #include <chrono>
 
-namespace fs = std::filesystem; // For C++17
+#include <snapshot.h>
+
 namespace fs = std::filesystem;
 
 const std::string b = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";//=
