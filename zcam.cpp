@@ -61,7 +61,7 @@
         return avcodec_open2(codec_ctx, codec, nullptr) >= 0;
     }
     
-    bool ZCAMC::initStream() {
+    bool ZCAM::initStream() {
         
         std::cout << "🔌 Connecting to RTSP..." << std::endl;
         

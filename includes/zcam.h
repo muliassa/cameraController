@@ -31,6 +31,8 @@ class ZCAM {
     AVCodecContext *codec_ctx = nullptr;
     int video_stream_index = -1;
 
+	bool detectVideoStream();
+
 public:
 
     ZCAM(const nlohmann::json& config, const int cam_idx);
