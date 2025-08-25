@@ -85,25 +85,21 @@
         return true;
     }
 
-    AVFrame *getFrame() {
+    AVFrame *ZCAM::getFrame() {
         
         if (!format_ctx || !codec_ctx) return false;
         
         AVPacket *packet = av_packet_alloc();
         AVFrame *frame = av_frame_alloc();
         
-        if (!packet || !frame || !rgb_frame) {
+        if (!packet || !frame) {
             if (packet) av_packet_free(&packet);
             if (frame) av_frame_free(&frame);
             return false;
         }
         
-        bool success = false;
-        int packets_read = 0;
-        
-        while (packets_read < 100 && keep_running) {
+        while (true) {
             int ret = av_read_frame(format_ctx, packet);
-            packets_read++;
             
             if (ret < 0) break;
             
