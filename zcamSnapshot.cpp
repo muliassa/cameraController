@@ -1,4 +1,5 @@
 #include <zcamSnapshot.h>
+#include <iomanip>
 
 ZCAMSnapshot::ZCAMSnapshot(json config) {
 	this->config = config;

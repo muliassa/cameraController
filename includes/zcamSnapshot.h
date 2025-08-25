@@ -2,6 +2,7 @@
 #define SNAPSHOT_H
 
 #include <string>
+#include <iostream>
 #include <chrono>
 #include <nlohmann/json.hpp>
 
