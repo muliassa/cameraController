@@ -110,6 +110,8 @@ void someService::run() {
 
             auto json = response.json;
 
+            someLogger::getInstance()->log("NEW REQUEST# " + json.dump(4)); 
+
             string api;
 
             if (response.status == 200 && json.contains("api")) {
@@ -125,8 +127,6 @@ void someService::run() {
                 if (json.contains("id")) request_id = json["id"].get<string>();
                 if (json.contains("params")) params = json["params"];
             }
-
-            someLogger::getInstance()->log("NEW REQUEST# " + params.dump(4)); 
 
             // auto job = response.json["job"];
             // size_t job_id = job["jobId"];
