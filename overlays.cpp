@@ -360,7 +360,7 @@
         }
         
         // SET THE OUTPUT FORMAT TO MATCH YOUR ENCODER
-        enum AVPixelFormat pix_fmts[] = { AV_PIX_FMT_YUV420P, AV_PIX_FMT_NONE };
+        enum AVPixelFormat pix_fmts[] = { AV_PIX_FMT_YUV420P, AV_PIX_FMT_YUVJ420P, AV_PIX_FMT_NONE };
         ret = av_opt_set_int_list(bufferSinkCtx, "pix_fmts", pix_fmts, AV_PIX_FMT_NONE, AV_OPT_SEARCH_CHILDREN);
         if (ret < 0) {
             ERROR_PRINT("Could not set output pixel format");
