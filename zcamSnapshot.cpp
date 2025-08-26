@@ -22,7 +22,7 @@ string ZCAMSnapshot::take() {
 	auto now = std::chrono::system_clock::now();
     auto time_t = std::chrono::system_clock::to_time_t(now);       
     stringstream ss;
-    ss << root << "zcam/SNAP" << cam_idx << std::put_time(std::localtime(&time_t), "%H%M") << ".JPG";	
+    ss << root << "zcam/SNAP" << cam_idx << std::put_time(std::localtime(&time_t), "%H%M%S") << ".JPG";	
 
     if (zcam->initStream()) {
 	    AVFrame *frame = zcam->getFrame();
