@@ -25,6 +25,7 @@ string ZCAMSnapshot::take() {
     ss << root << "zcam/SNAP" << cam_idx << std::put_time(std::localtime(&time_t), "%H%M%S") << ".JPG";	
 
     if (zcam->initStream()) {
+
 	    AVFrame *frame = zcam->getFrame();
 
 	    overlayProcessor->clearGridText();
@@ -41,7 +42,6 @@ string ZCAMSnapshot::take() {
                 int y0 = static_cast<int>(top_margin + j * dh);
                 int x1 = static_cast<int>(i * dw + dw);
                 int y1 = static_cast<int>(top_margin + j * dh + dh);
-                cout << "FAST ROI: " << x0 << "," << y0 << "," << x1 << "," << y1 << endl;
         	double focus = Focus::fastROI(frame, x0, y0, x1, y1);
             string text = to_string(static_cast<int>(focus));
             overlayProcessor->setGridText({x0 + 10, y0 + 10, focus, text});

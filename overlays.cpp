@@ -231,11 +231,6 @@
 
         DEBUG_PRINT("reinit filter graph");
 
-        if (initialized) {
-            // DEBUG_PRINT("Filter graph already initialized");
-            return true;
-        }
-        
         // Clean up previous graph if exists
         if (filterGraph) {
             // DEBUG_PRINT("Cleaning up existing filter graph");
