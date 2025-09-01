@@ -252,17 +252,22 @@ using namespace std;
             // } else if (settings.iso < 40000) {
             //     new_iso = 40000; // High but usable
             //     reason = "Extremely dark - ISO to 40000";
-            } else if (settings.iso < 51200) {
+            } 
+            else if (settings.iso < 51200) {
                 new_iso = 51200; // High but usable
                 reason = "Extremely dark - ISO to 51200 MAX";
             // } else if (settings.iso < 64000) {
             //     new_iso = 64000; // High but usable
             //     reason = "Extremely dark - ISO to MAX 64000";
-            } else if (settings.iris != settings.min_iris) {
-                // Only open iris after exhausting ISO options
-                if (applySetting("iris", settings.min_iris)) {
-                    reason = "Max ISO reached - opened iris f/" + settings.iris + "→f/" + settings.min_iris;
-                    settings.iris = settings.min_iris;
+            } 
+            else if (stod(settings.iris) > stod(settings.min_iris)) {
+
+                // Only close iris after reaching minimum ISO
+                string new_iris = to_string(stod(settings.iris) - 1);
+                
+                if (applySetting("iris", new_iris)) {
+                    reason = "Very bright - closed iris f/" + settings.iris + "→f/" + new_iris + " (min ISO reached)";
+                    settings.iris = new_iris;
                     changed = true;
                 }
             }
@@ -302,18 +307,10 @@ using namespace std;
                         changed = true;
                     }
                 }
-            } else if (settings.iris != settings.max_iris && std::stod(settings.iris) < std::stod(settings.max_iris)) {
+            } 
+            else if (stod(settings.iris) < stod(settings.max_iris)) {
                 // Only close iris after reaching minimum ISO
-                std::string new_iris;
-                double current_iris = std::stod(settings.iris);
-                
-                if (current_iris < 11) {
-                    new_iris = "11";
-                // } else if (current_iris < 14) {
-                //     new_iris = "14";
-                } else {
-                    new_iris = settings.max_iris;
-                }
+                string new_iris = to_string(stod(settings.iris) + 1);
                 
                 if (applySetting("iris", new_iris)) {
                     reason = "Very bright - closed iris f/" + settings.iris + "→f/" + new_iris + " (min ISO reached)";
