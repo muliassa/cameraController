@@ -43,9 +43,7 @@ ZCAMController *camera;
     });
 
     string serviceName = config["service"].get<string>();
-
     auto service = new someService(config, serviceName + cam_id);
-
     someLogger::getInstance()->log("start service");
     service->run();
         

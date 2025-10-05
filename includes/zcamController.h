@@ -28,8 +28,8 @@ struct CameraSettings {
     double brightness_tolerance = 20.0;
     
     // Iris constraints for surf
-    std::string min_iris = "8";       // f/8 - good contrast, not too wide
-    std::string max_iris = "11";      // f/11 - reasonable light control
+    string min_iris = "8";       // f/8 - good contrast, not too wide
+    string max_iris = "11";      // f/11 - reasonable light control
 };
 
 struct CameraState {

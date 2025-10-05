@@ -6,6 +6,7 @@
 #include <iostream>     // std::cout
 #include <algorithm>    // std::sort
 #include <vector>       // std::vector
+#include <functional>
 #include <nlohmann/json.hpp>
 
 #include <zcamSnapshot.h>
@@ -19,10 +20,11 @@ class someService {
     string host;
     string serviceName;
     ZCAMSnapshot* snapshotService;
-public:
-    explicit someService(json config, string serviceName);
     void post_status(string status);
     void post_response(json, string status, json response = json());
+public:
+    explicit someService(json config, string serviceName);
+    function<void(json)> onMessage;
     void run();
 };
 

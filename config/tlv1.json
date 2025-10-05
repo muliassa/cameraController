@@ -1,1 +1,1 @@
-{"server":"surfai.peocl.com","files":"/home/surfai/files/","service":"zcam","cameras":["LEFT","RIGHT"],"ipaddr":["192.168.150.202","192.168.150.201"],"top_margin":[180,110],"start_hour":6,"end_hour":20,"refresh":5,"auto":true}
+{"server":"surfai.peocl.com","files":"/home/surfai/files/","service":"zcam","cameras":["LEFT","RIGHT"],"ipaddr":["192.168.150.202","192.168.150.201"],"top_margin":[180,110],"start_hour":6,"end_hour":19,"refresh":5,"auto":true}
