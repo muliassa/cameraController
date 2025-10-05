@@ -16,7 +16,6 @@ class ZCAMSnapshot {
 
 	json config;
 	string root;
-    string camera_id;
 	int cam_idx;
 	string cam_name;
 	ZCAM * zcam;

@@ -9,7 +9,7 @@ ZCAMSnapshot::ZCAMSnapshot(json config) {
 	this->config = config;
 	root = config["files"].get<string>();
 	cam_idx = stoi(config["cam_id"].get<string>());
-    cam_id = config["cameras"][cam_idx].get<string>();
+    cam_name = config["cameras"][cam_idx].get<string>();
 
 	overlayProcessor = make_unique<FrameOverlayProcessor>(1920, 1080, AV_PIX_FMT_YUVJ420P); // TODO: Automatic
     overlayProcessor->setFont("", 50);
@@ -24,7 +24,7 @@ string ZCAMSnapshot::take() {
     auto time_t = std::chrono::system_clock::to_time_t(now);       
     stringstream ss;
     // ss << root << "zcam/SNAP" << cam_idx << std::put_time(std::localtime(&time_t), "%H%M%S") << ".JPG";	
-    ss << root << "zcam/" << cam_id << std::put_time(std::localtime(&time_t), "%H%M") << ".JPG";
+    ss << root << "zcam/" << cam_name << std::put_time(std::localtime(&time_t), "%H%M") << ".JPG";
 
     if (zcam->initStream()) {
 
